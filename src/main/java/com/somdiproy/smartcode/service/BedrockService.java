@@ -1,0 +1,539 @@
+// ===== BedrockService.java =====
+package com.somdiproy.smartcode.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.somdiproy.smartcode.dto.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class BedrockService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(BedrockService.class);
+    
+    @Value("${aws.bedrock.region:us-east-1}")
+    private String bedrockRegion;
+    
+    @Value("${aws.bedrock.model-id:anthropic.claude-3-sonnet-20240229-v1:0}")
+    private String modelId;
+    
+    private BedrockRuntimeClient bedrockClient;
+    private ObjectMapper objectMapper;
+    
+    public BedrockService() {
+        this.objectMapper = new ObjectMapper();
+    }
+    
+    private BedrockRuntimeClient getBedrockClient() {
+        if (bedrockClient == null) {
+            bedrockClient = BedrockRuntimeClient.builder()
+                    .region(Region.of(bedrockRegion))
+                    .credentialsProvider(DefaultCredentialsProvider.create())
+                    .build();
+        }
+        return bedrockClient;
+    }
+    
+    public CodeReviewResult analyzeCode(String code, String language) {
+        try {
+            logger.info("Starting Bedrock analysis for language: {}", language);
+            
+            String prompt = buildAnalysisPrompt(code, language);
+            String response = invokeClaudeModel(prompt);
+            
+            return parseAnalysisResponse(response);
+            
+        } catch (Exception e) {
+            logger.error("Error analyzing code with Bedrock", e);
+            return createErrorResult(e.getMessage());
+        }
+    }
+    
+    private String buildAnalysisPrompt(String code, String language) {
+        return String.format("""
+            You are an expert code reviewer. Analyze the following %s code and provide a comprehensive review.
+            
+            Please analyze the code for:
+            1. Security vulnerabilities
+            2. Performance issues
+            3. Code quality and maintainability
+            4. Best practices adherence
+            5. Potential bugs
+            6. Suggestions for improvement
+            
+            Provide your response in JSON format with the following structure:
+            {
+              "summary": "Brief overview of the code quality",
+              "overallScore": 8.5,
+              "issues": [
+                {
+                  "severity": "HIGH",
+                  "type": "SECURITY",
+                  "title": "Issue title",
+                  "description": "Detailed description",
+                  "lineNumber": 15,
+                  "codeSnippet": "problematic code",
+                  "suggestion": "How to fix"
+                }
+              ],
+              "suggestions": [
+                {
+                  "title": "Suggestion title",
+                  "description": "Description",
+                  "category": "Performance",
+                  "impact": "High",
+                  "implementation": "How to implement"
+                }
+              ],
+              "security": {
+                "securityScore": 7.5,
+                "vulnerabilities": ["List of vulnerabilities"],
+                "recommendations": ["Security recommendations"],
+                "hasSecurityIssues": true
+              },
+              "performance": {
+                "performanceScore": 8.0,
+                "bottlenecks": ["Performance bottlenecks"],
+                "optimizations": ["Optimization suggestions"],
+                "complexity": "Medium"
+              },
+              "quality": {
+                "maintainabilityScore": 8.5,
+                "readabilityScore": 9.0,
+                "linesOfCode": 150,
+                "complexityScore": 3,
+                "testCoverage": 0.0,
+                "duplicateLines": 0
+              }
+            }
+            
+            Code to analyze:
+            ```%s
+            %s
+            ```
+            
+            Respond only with valid JSON, no additional text.
+            """, language, language, code);
+    }
+    
+    private String invokeClaudeModel(String prompt) throws Exception {
+        try {
+            // Build request payload for Claude
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("anthropic_version", "bedrock-2023-05-31");
+            requestBody.put("max_tokens", 4000);
+            
+            List<Map<String, Object>> messages = new ArrayList<>();
+            Map<String, Object> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", prompt);
+            messages.add(message);
+            
+            requestBody.put("messages", messages);
+            
+            String jsonBody = objectMapper.writeValueAsString(requestBody);
+            
+            InvokeModelRequest request = InvokeModelRequest.builder()
+                    .modelId(modelId)
+                    .body(SdkBytes.fromUtf8String(jsonBody))
+                    .contentType("application/json")
+                    .accept("application/json")
+                    .build();
+            
+            InvokeModelResponse response = getBedrockClient().invokeModel(request);
+            String responseBody = response.body().asUtf8String();
+            
+            // Parse Claude response
+            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+            List<Map<String, Object>> content = (List<Map<String, Object>>) responseMap.get("content");
+            
+            if (content != null && !content.isEmpty()) {
+                return (String) content.get(0).get("text");
+            }
+            
+            throw new RuntimeException("Invalid response from Claude model");
+            
+        } catch (Exception e) {
+            logger.error("Error invoking Claude model", e);
+            throw e;
+        }
+    }
+    
+    private CodeReviewResult parseAnalysisResponse(String response) {
+        try {
+            // Clean up response if needed
+            String cleanedResponse = response.trim();
+            if (cleanedResponse.startsWith("```json")) {
+                cleanedResponse = cleanedResponse.substring(7);
+            }
+            if (cleanedResponse.endsWith("```")) {
+                cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length() - 3);
+            }
+            
+            Map<String, Object> responseMap = objectMapper.readValue(cleanedResponse, Map.class);
+            
+            return CodeReviewResult.builder()
+                    .summary((String) responseMap.get("summary"))
+                    .overallScore(((Number) responseMap.getOrDefault("overallScore", 5.0)).doubleValue())
+                    .issues(parseIssues((List<Map<String, Object>>) responseMap.get("issues")))
+                    .suggestions(parseSuggestions((List<Map<String, Object>>) responseMap.get("suggestions")))
+                    .security(parseSecurityAnalysis((Map<String, Object>) responseMap.get("security")))
+                    .performance(parsePerformanceAnalysis((Map<String, Object>) responseMap.get("performance")))
+                    .quality(parseQualityMetrics((Map<String, Object>) responseMap.get("quality")))
+                    .metadata(responseMap)
+                    .build();
+                    
+        } catch (Exception e) {
+            logger.error("Error parsing analysis response", e);
+            return createErrorResult("Failed to parse AI response");
+        }
+    }
+    
+    private List<CodeIssue> parseIssues(List<Map<String, Object>> issuesData) {
+        List<CodeIssue> issues = new ArrayList<>();
+        
+        if (issuesData != null) {
+            for (Map<String, Object> issueData : issuesData) {
+                CodeIssue issue = CodeIssue.builder()
+                        .severity(IssueSeverity.valueOf((String) issueData.getOrDefault("severity", "MEDIUM")))
+                        .type(IssueType.valueOf((String) issueData.getOrDefault("type", "CODE_SMELL")))
+                        .title((String) issueData.get("title"))
+                        .description((String) issueData.get("description"))
+                        .lineNumber(((Number) issueData.getOrDefault("lineNumber", 0)).intValue())
+                        .codeSnippet((String) issueData.get("codeSnippet"))
+                        .suggestion((String) issueData.get("suggestion"))
+                        .build();
+                issues.add(issue);
+            }
+        }
+        
+        return issues;
+    }
+    
+    private List<Suggestion> parseSuggestions(List<Map<String, Object>> suggestionsData) {
+        List<Suggestion> suggestions = new ArrayList<>();
+        
+        if (suggestionsData != null) {
+            for (Map<String, Object> suggestionData : suggestionsData) {
+                Suggestion suggestion = Suggestion.builder()
+                        .title((String) suggestionData.get("title"))
+                        .description((String) suggestionData.get("description"))
+                        .category((String) suggestionData.get("category"))
+                        .impact((String) suggestionData.get("impact"))
+                        .implementation((String) suggestionData.get("implementation"))
+                        .build();
+                suggestions.add(suggestion);
+            }
+        }
+        
+        return suggestions;
+    }
+    
+    private SecurityAnalysis parseSecurityAnalysis(Map<String, Object> securityData) {
+        if (securityData == null) {
+            return SecurityAnalysis.builder()
+                    .securityScore(5.0)
+                    .vulnerabilities(new ArrayList<>())
+                    .recommendations(new ArrayList<>())
+                    .hasSecurityIssues(false)
+                    .build();
+        }
+        
+        return SecurityAnalysis.builder()
+                .securityScore(((Number) securityData.getOrDefault("securityScore", 5.0)).doubleValue())
+                .vulnerabilities((List<String>) securityData.getOrDefault("vulnerabilities", new ArrayList<>()))
+                .recommendations((List<String>) securityData.getOrDefault("recommendations", new ArrayList<>()))
+                .hasSecurityIssues((Boolean) securityData.getOrDefault("hasSecurityIssues", false))
+                .build();
+    }
+    
+    private PerformanceAnalysis parsePerformanceAnalysis(Map<String, Object> performanceData) {
+        if (performanceData == null) {
+            return PerformanceAnalysis.builder()
+                    .performanceScore(5.0)
+                    .bottlenecks(new ArrayList<>())
+                    .optimizations(new ArrayList<>())
+                    .complexity("Medium")
+                    .build();
+        }
+        
+        return PerformanceAnalysis.builder()
+                .performanceScore(((Number) performanceData.getOrDefault("performanceScore", 5.0)).doubleValue())
+                .bottlenecks((List<String>) performanceData.getOrDefault("bottlenecks", new ArrayList<>()))
+                .optimizations((List<String>) performanceData.getOrDefault("optimizations", new ArrayList<>()))
+                .complexity((String) performanceData.getOrDefault("complexity", "Medium"))
+                .build();
+    }
+    
+    private QualityMetrics parseQualityMetrics(Map<String, Object> qualityData) {
+        if (qualityData == null) {
+            return QualityMetrics.builder()
+                    .maintainabilityScore(5.0)
+                    .readabilityScore(5.0)
+                    .linesOfCode(0)
+                    .complexityScore(3)
+                    .testCoverage(0.0)
+                    .duplicateLines(0)
+                    .build();
+        }
+        
+        return QualityMetrics.builder()
+                .maintainabilityScore(((Number) qualityData.getOrDefault("maintainabilityScore", 5.0)).doubleValue())
+                .readabilityScore(((Number) qualityData.getOrDefault("readabilityScore", 5.0)).doubleValue())
+                .linesOfCode(((Number) qualityData.getOrDefault("linesOfCode", 0)).intValue())
+                .complexityScore(((Number) qualityData.getOrDefault("complexityScore", 3)).intValue())
+                .testCoverage(((Number) qualityData.getOrDefault("testCoverage", 0.0)).doubleValue())
+                .duplicateLines(((Number) qualityData.getOrDefault("duplicateLines", 0)).intValue())
+                .build();
+    }
+    
+    private CodeReviewResult createErrorResult(String errorMessage) {
+        return CodeReviewResult.builder()
+                .summary("Analysis failed: " + errorMessage)
+                .overallScore(0.0)
+                .issues(new ArrayList<>())
+                .suggestions(new ArrayList<>())
+                .security(SecurityAnalysis.builder()
+                        .securityScore(0.0)
+                        .vulnerabilities(new ArrayList<>())
+                        .recommendations(new ArrayList<>())
+                        .hasSecurityIssues(false)
+                        .build())
+                .performance(PerformanceAnalysis.builder()
+                        .performanceScore(0.0)
+                        .bottlenecks(new ArrayList<>())
+                        .optimizations(new ArrayList<>())
+                        .complexity("Unknown")
+                        .build())
+                .quality(QualityMetrics.builder()
+                        .maintainabilityScore(0.0)
+                        .readabilityScore(0.0)
+                        .linesOfCode(0)
+                        .complexityScore(0)
+                        .testCoverage(0.0)
+                        .duplicateLines(0)
+                        .build())
+                .metadata(new HashMap<>())
+                .build();
+    }
+}
+
+// ===== S3Service.java =====
+package com.somdiproy.smartcode.service;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+@Service
+public class S3Service {
+    
+    private static final Logger logger = LoggerFactory.getLogger(S3Service.class);
+    
+    @Value("${aws.s3.bucket-name:smartcode-uploads}")
+    private String bucketName;
+    
+    @Value("${aws.s3.region:us-east-1}")
+    private String region;
+    
+    private S3Client s3Client;
+    
+    private S3Client getS3Client() {
+        if (s3Client == null) {
+            s3Client = S3Client.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(DefaultCredentialsProvider.create())
+                    .build();
+        }
+        return s3Client;
+    }
+    
+    public String uploadZipFile(MultipartFile file, String analysisId) {
+        try {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            String s3Key = String.format("uploads/%s/%s/%s", timestamp, analysisId, file.getOriginalFilename());
+            
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(s3Key)
+                    .contentType(file.getContentType())
+                    .build();
+            
+            getS3Client().putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            
+            logger.info("File uploaded to S3: {}/{}", bucketName, s3Key);
+            return s3Key;
+            
+        } catch (Exception e) {
+            logger.error("Error uploading file to S3", e);
+            throw new RuntimeException("Failed to upload file to S3", e);
+        }
+    }
+}
+
+// ===== AnalysisStorageService.java =====
+package com.somdiproy.smartcode.service;
+
+import com.somdiproy.smartcode.dto.AnalysisResponse;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+
+@Service
+public class AnalysisStorageService {
+    
+    // In-memory storage for demo purposes
+    // In production, this would use Redis or a database
+    private final Map<String, AnalysisResponse> analysisStorage = new ConcurrentHashMap<>();
+    
+    @CachePut(value = "analysis", key = "#analysisId")
+    public AnalysisResponse storeAnalysis(String analysisId, AnalysisResponse response) {
+        analysisStorage.put(analysisId, response);
+        return response;
+    }
+    
+    @Cacheable(value = "analysis", key = "#analysisId")
+    public AnalysisResponse getAnalysis(String analysisId) {
+        return analysisStorage.get(analysisId);
+    }
+    
+    @CacheEvict(value = "analysis", key = "#analysisId")
+    public void removeAnalysis(String analysisId) {
+        analysisStorage.remove(analysisId);
+    }
+}
+
+// ===== EmailService.java =====
+package com.somdiproy.smartcode.service;
+
+import com.sendgrid.Method;
+import com.sendgrid.Request;
+import com.sendgrid.Response;
+import com.sendgrid.SendGrid;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.Content;
+import com.sendgrid.helpers.mail.objects.Email;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+@Service
+public class EmailService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
+    
+    @Value("${sendgrid.api.key:}")
+    private String sendGridApiKey;
+    
+    @Value("${sendgrid.from.email:smartcode@somdip.dev}")
+    private String fromEmail;
+    
+    @Value("${sendgrid.from.name:Smart Code Review}")
+    private String fromName;
+    
+    public void sendOtpEmail(String toEmail, String otp, String userName) {
+        try {
+            if (sendGridApiKey == null || sendGridApiKey.isEmpty()) {
+                logger.warn("SendGrid API key not configured, skipping email send");
+                return;
+            }
+            
+            Email from = new Email(fromEmail, fromName);
+            Email to = new Email(toEmail);
+            String subject = "Your Smart Code Review OTP";
+            
+            String htmlContent = buildOtpEmailHtml(otp, userName);
+            Content content = new Content("text/html", htmlContent);
+            
+            Mail mail = new Mail(from, subject, to, content);
+            
+            SendGrid sg = new SendGrid(sendGridApiKey);
+            Request request = new Request();
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+            
+            Response response = sg.api(request);
+            
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
+                logger.info("OTP email sent successfully to: {}", toEmail);
+            } else {
+                logger.error("Failed to send OTP email. Status: {}, Body: {}", 
+                           response.getStatusCode(), response.getBody());
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error sending OTP email", e);
+        }
+    }
+    
+    private String buildOtpEmailHtml(String otp, String userName) {
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Smart Code Review OTP</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+                    .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                    .header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .content { padding: 30px; text-align: center; }
+                    .otp { font-size: 32px; font-weight: bold; color: #667eea; background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; letter-spacing: 3px; }
+                    .footer { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; color: #666; }
+                    .expire-note { color: #dc3545; font-weight: bold; margin: 15px 0; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>🚀 Smart Code Review</h1>
+                        <p>AI-Powered Code Analysis Platform</p>
+                    </div>
+                    <div class="content">
+                        <h2>Hello %s!</h2>
+                        <p>Your verification code for Smart Code Review is:</p>
+                        <div class="otp">%s</div>
+                        <p class="expire-note">⏰ This OTP expires in 7 minutes</p>
+                        <p>Enter this code to start your free AI-powered code analysis session.</p>
+                    </div>
+                    <div class="footer">
+                        <p>🔒 This is an automated message from Smart Code Review Service</p>
+                        <p>Part of Somdip Roy's Professional Portfolio</p>
+                        <p><a href="https://somdip.dev">somdip.dev</a> | <a href="https://smartcode.somdip.dev">smartcode.somdip.dev</a></p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """, userName != null ? userName : "Developer", otp);
+    }
+}

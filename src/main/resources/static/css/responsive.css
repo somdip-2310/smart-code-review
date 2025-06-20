@@ -1,0 +1,504 @@
+/* Smart Code Review - Responsive Styles */
+/* Mobile-first responsive design */
+
+/* Base Mobile Styles (0 - 640px) */
+@media (max-width: 640px) {
+    .container {
+        padding: 0 0.75rem;
+    }
+    
+    /* Typography scaling */
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.75rem; }
+    h3 { font-size: 1.25rem; }
+    
+    /* Header adjustments */
+    .nav-link {
+        padding: 0.75rem 1rem;
+        margin: 0;
+        border-radius: 0.5rem;
+    }
+    
+    /* Hero section */
+    .hero-section {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+    
+    .hero-section h1 {
+        font-size: 2.5rem;
+        line-height: 1.1;
+    }
+    
+    .hero-section p {
+        font-size: 1rem;
+    }
+    
+    /* Grid adjustments */
+    .grid-cols-2 { grid-template-columns: 1fr; }
+    .grid-cols-3 { grid-template-columns: 1fr; }
+    .gap-8 { gap: 1.5rem; }
+    
+    /* Feature cards */
+    .feature-card {
+        padding: 1.5rem;
+    }
+    
+    /* Modal adjustments */
+    .modal-content {
+        margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+    
+    .modal-header {
+        padding: 1rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+        max-height: calc(100vh - 120px);
+    }
+    
+    /* Button adjustments */
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .btn + .btn {
+        margin-top: 0.75rem;
+    }
+    
+    /* File upload */
+    .file-upload-area {
+        padding: 2rem 1rem;
+    }
+    
+    /* Code editor */
+    .code-editor {
+        font-size: 12px;
+        min-height: 200px;
+    }
+    
+    /* Analysis cards */
+    .analysis-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .analysis-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .score-circle {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Toast notifications */
+    .toast-container {
+        top: 0.5rem;
+        right: 0.5rem;
+        left: 0.5rem;
+        max-width: none;
+    }
+    
+    .toast {
+        padding: 0.75rem;
+    }
+}
+
+/* Small Tablets (641px - 768px) */
+@media (min-width: 641px) and (max-width: 768px) {
+    .container {
+        padding: 0 1rem;
+    }
+    
+    /* Grid adjustments */
+    .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    
+    /* Hero section */
+    .hero-section h1 {
+        font-size: 3rem;
+    }
+    
+    /* Feature cards in 2 columns */
+    .feature-card {
+        padding: 1.75rem;
+    }
+    
+    /* Modal adjustments */
+    .modal-content {
+        max-width: 600px;
+    }
+    
+    /* Buttons can be inline on tablets */
+    .btn-group {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .btn-group .btn {
+        width: auto;
+        flex: 1;
+    }
+}
+
+/* Medium screens - Tablets (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        padding: 0 1.5rem;
+    }
+    
+    /* Grid improvements */
+    .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    
+    /* Hero section adjustments */
+    .hero-section {
+        padding-top: 3rem;
+        padding-bottom: 4rem;
+    }
+    
+    .hero-section h1 {
+        font-size: 3.5rem;
+    }
+    
+    /* Navigation improvements */
+    .nav-link {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Feature cards in 2-3 columns */
+    .features-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    
+    /* Analysis results can show more info */
+    .analysis-header {
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .issue-item {
+        padding: 1.25rem;
+    }
+}
+
+/* Large screens - Desktop (1025px - 1280px) */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .container {
+        max-width: 1024px;
+        padding: 0 2rem;
+    }
+    
+    /* Full grid layouts */
+    .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    
+    /* Hero section full layout */
+    .hero-section h1 {
+        font-size: 4rem;
+    }
+    
+    /* Features in full 3-column layout */
+    .features-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    /* Navigation full width */
+    .nav-link {
+        padding: 0.5rem 1rem;
+    }
+    
+    /* Modal centered properly */
+    .modal-content {
+        max-width: 600px;
+    }
+    
+    /* Code editor larger */
+    .code-editor {
+        min-height: 400px;
+        font-size: 14px;
+    }
+    
+    /* Analysis cards with better spacing */
+    .analysis-card {
+        padding: 2rem;
+    }
+    
+    .issue-item {
+        padding: 1.5rem;
+    }
+}
+
+/* Extra Large screens - Large Desktop (1281px+) */
+@media (min-width: 1281px) {
+    .container {
+        max-width: 1200px;
+        padding: 0 2rem;
+    }
+    
+    /* Full layouts */
+    .xl\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    
+    /* Hero section maximum */
+    .hero-section {
+        padding-top: 4rem;
+        padding-bottom: 6rem;
+    }
+    
+    .hero-section h1 {
+        font-size: 4.5rem;
+    }
+    
+    /* Features optimal spacing */
+    .features-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+    }
+    
+    .feature-card {
+        padding: 2.5rem;
+    }
+    
+    /* Analysis results with sidebar layout */
+    .analysis-layout {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+    }
+    
+    /* Code editor maximum size */
+    .code-editor {
+        min-height: 500px;
+        font-size: 15px;
+    }
+    
+    /* Toast notifications positioned better */
+    .toast-container {
+        max-width: 450px;
+    }
+}
+
+/* Ultra Wide screens (1920px+) */
+@media (min-width: 1920px) {
+    .container {
+        max-width: 1400px;
+    }
+    
+    .hero-section h1 {
+        font-size: 5rem;
+    }
+    
+    .features-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3rem;
+    }
+    
+    .feature-card {
+        padding: 3rem;
+    }
+}
+
+/* High DPI / Retina displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    /* Ensure crisp rendering on high DPI displays */
+    .logo, .icon {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+    
+    /* Slightly thinner borders on retina */
+    .border {
+        border-width: 0.5px;
+    }
+    
+    /* Adjust shadows for better appearance */
+    .shadow-lg {
+        box-shadow: 0 8px 12px -2px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-light: #0f172a;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --border-light: #334155;
+    }
+    
+    body {
+        background-color: var(--background-light);
+        color: var(--text-primary);
+    }
+    
+    .bg-white {
+        background-color: #1e293b;
+    }
+    
+    .bg-gray-50 {
+        background-color: #0f172a;
+    }
+    
+    .border-gray-200 {
+        border-color: var(--border-light);
+    }
+    
+    .text-gray-600 {
+        color: var(--text-secondary);
+    }
+    
+    .feature-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    
+    .modal-content {
+        background: #1e293b;
+        border: 1px solid #334155;
+    }
+    
+    .form-input {
+        background: #0f172a;
+        border-color: #334155;
+        color: var(--text-primary);
+    }
+    
+    .form-input:focus {
+        border-color: var(--primary-blue);
+        background: #1e293b;
+    }
+    
+    .analysis-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    
+    .toast {
+        background: #1e293b;
+        border-color: #334155;
+        color: var(--text-primary);
+    }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    .animate-blob {
+        animation: none;
+    }
+    
+    .spinner {
+        animation: none;
+        border: 4px solid #d1d5db;
+        border-top: 4px solid var(--primary-blue);
+    }
+}
+
+/* Print optimizations */
+@media print {
+    /* Reset colors for print */
+    * {
+        color: black !important;
+        background: white !important;
+        box-shadow: none !important;
+    }
+    
+    /* Hide interactive elements */
+    .no-print,
+    button,
+    .btn,
+    .modal-close,
+    .toast-close {
+        display: none !important;
+    }
+    
+    /* Optimize layout for print */
+    .container {
+        max-width: none;
+        padding: 0;
+    }
+    
+    .analysis-card {
+        break-inside: avoid;
+        border: 1px solid black;
+        margin-bottom: 1rem;
+    }
+    
+    .feature-card {
+        break-inside: avoid;
+        border: 1px solid black;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Ensure text is readable */
+    h1, h2, h3, h4, h5, h6 {
+        color: black !important;
+    }
+    
+    p, span, div {
+        color: black !important;
+    }
+    
+    /* Optimize page breaks */
+    h1, h2, h3 {
+        break-after: avoid;
+    }
+    
+    .issue-item {
+        break-inside: avoid;
+    }
+}
+
+/* Focus styles for keyboard navigation */
+@media (prefers-reduced-motion: no-preference) {
+    *:focus {
+        outline: 2px solid var(--primary-blue);
+        outline-offset: 2px;
+    }
+    
+    .btn:focus {
+        outline-offset: 4px;
+    }
+    
+    .nav-link:focus {
+        outline-color: var(--primary-indigo);
+    }
+}
+
+/* Container queries (when supported) */
+@supports (container-type: inline-size) {
+    .feature-container {
+        container-type: inline-size;
+    }
+    
+    @container (max-width: 300px) {
+        .feature-card {
+            padding: 1rem;
+        }
+        
+        .feature-card h3 {
+            font-size: 1rem;
+        }
+    }
+    
+    @container (min-width: 400px) {
+        .feature-card {
+            padding: 2rem;
+        }
+    }
+}

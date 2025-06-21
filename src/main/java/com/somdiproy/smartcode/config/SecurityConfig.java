@@ -18,7 +18,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
     
-    @Value("${cors.allowed.origins:https://smartcode.somdip.dev,http://localhost:3000}")
+    @Value("${cors.allowed.origins:https://smartcode.somdip.dev,http://localhost:3000,http://localhost:8083}")
     private String allowedOrigins;
     
     @Bean
@@ -28,23 +28,31 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // Public endpoints
+                // Public endpoints - Including all view endpoints
                 .requestMatchers(
+                    "/",
+                    "/upload",
+                    "/analyze",
+                    "/error",
+                    "/css/**",
+                    "/js/**",
+                    "/images/**",
+                    "/static/**",
+                    "/favicon.ico",
                     "/actuator/health",
                     "/actuator/info",
                     "/api/v1/code-review/health",
                     "/api/v1/code-review/session/**",
                     "/api/v1/code-review/analyze/**",
                     "/api/v1/code-review/analysis/**",
-                    "/api/v1/code-review/webhook/**",
-                    "/error"
+                    "/api/v1/code-review/webhook/**"
                 ).permitAll()
                 // All other requests require authentication
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers
-                .frameOptions().deny()
-                .contentTypeOptions().and()
+                .frameOptions(frameOptions -> frameOptions.deny())
+                .contentTypeOptions(contentTypeOptions -> {})
                 .httpStrictTransportSecurity(hsts -> hsts
                     .maxAgeInSeconds(31536000)
                     .includeSubDomains(true)
@@ -85,5 +93,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
-

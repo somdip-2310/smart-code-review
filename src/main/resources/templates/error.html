@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${status} + ' - Error | Smart Code Review'">Error | Smart Code Review</title>
+    <meta name="robots" content="noindex, nofollow">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-indigo: #6366f1;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-indigo) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .error-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+        }
+        .error-code {
+            font-size: 8rem;
+            font-weight: 800;
+            line-height: 1;
+            opacity: 0.1;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container relative flex items-center justify-center px-4 py-16">
+        <!-- Background Error Code -->
+        <div class="error-code gradient-text" th:text="${status ?: '404'}">404</div>
+        
+        <!-- Error Content -->
+        <div class="relative z-10 max-w-md w-full text-center">
+            <!-- Logo -->
+            <div class="mb-8">
+                <a href="/" th:href="@{/}" class="inline-flex items-center space-x-3">
+                    <div class="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold gradient-text">Smart Code Review</h1>
+                </a>
+            </div>
+            
+            <!-- Error Information -->
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <h2 class="text-6xl font-bold text-gray-800 mb-4" th:text="${status ?: '404'}">404</h2>
+                
+                <!-- Error Messages -->
+                <div th:switch="${status}">
+                    <div th:case="404">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Page Not Found</h3>
+                        <p class="text-gray-600 mb-6">The page you're looking for doesn't exist or has been moved.</p>
+                    </div>
+                    <div th:case="403">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Access Denied</h3>
+                        <p class="text-gray-600 mb-6">You don't have permission to access this resource.</p>
+                    </div>
+                    <div th:case="500">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Internal Server Error</h3>
+                        <p class="text-gray-600 mb-6">Something went wrong on our end. Please try again later.</p>
+                    </div>
+                    <div th:case="*">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2" th:text="${error ?: 'Oops! Something went wrong'}">Oops! Something went wrong</h3>
+                        <p class="text-gray-600 mb-6" th:text="${message ?: 'An unexpected error occurred while processing your request.'}">
+                            An unexpected error occurred while processing your request.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Technical Details (Development Mode) -->
+                <div th:if="${trace}" class="mt-4 p-4 bg-gray-100 rounded-lg text-left">
+                    <details class="text-sm">
+                        <summary class="cursor-pointer text-gray-700 font-medium">Technical Details</summary>
+                        <div class="mt-2 space-y-2">
+                            <p th:if="${timestamp}" class="text-gray-600">
+                                <strong>Timestamp:</strong> <span th:text="${timestamp}"></span>
+                            </p>
+                            <p th:if="${path}" class="text-gray-600">
+                                <strong>Path:</strong> <span th:text="${path}"></span>
+                            </p>
+                            <p th:if="${exception}" class="text-gray-600">
+                                <strong>Exception:</strong> <span th:text="${exception}"></span>
+                            </p>
+                        </div>
+                    </details>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="mt-8 space-y-3">
+                    <a href="/" th:href="@{/}" 
+                       class="inline-flex items-center justify-center w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        Go to Homepage
+                    </a>
+                    
+                    <button onclick="history.back()" 
+                            class="inline-flex items-center justify-center w-full px-6 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-all duration-300">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        Go Back
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Additional Help -->
+            <div class="mt-8 text-sm text-gray-600">
+                <p>Need help? <a href="mailto:support@somdip.dev" class="text-blue-600 hover:text-blue-700 font-medium">Contact Support</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Google Analytics -->
+    <script th:if="${@environment.getProperty('google.analytics.enabled') == 'true'}">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', /*[[${@environment.getProperty('google.analytics.measurement-id')}]]*/ 'G-TJMD3KM77H', {
+            page_title: 'Error ' + /*[[${status}]]*/ '404',
+            page_path: /*[[${path}]]*/ '/error'
+        });
+    </script>
+    <script async th:src="'https://www.googletagmanager.com/gtag/js?id=' + ${@environment.getProperty('google.analytics.measurement-id')}"></script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Somdip Roy">
+    
+    <!-- Page-specific SEO -->
+    <title>Upload Code for Analysis - Smart Code Review | Somdip Roy</title>
+    <meta name="description" content="Upload your ZIP files, GitHub repositories, or code archives for comprehensive AI-powered analysis. Supports Java, Python, JavaScript, and more programming languages.">
+    <meta name="keywords" content="upload code, code analysis, file upload, GitHub integration, ZIP upload, code review upload">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/css/main.css" th:href="@{/css/main.css}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Analytics -->
+    <script async th:src="'https://www.googletagmanager.com/gtag/js?id=' + ${googleAnalyticsId}"></script>
+    <script th:inline="javascript">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', /*[[${googleAnalyticsId}]]*/ 'G-TJMD3KM77H');
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <!-- Skip to main content -->
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">
+        Skip to main content
+    </a>
+    
+    <!-- Header -->
+    <header th:replace="~{layout/header :: header}"></header>
+    
+    <!-- Main content -->
+    <main id="main-content" class="flex-1">
+            <section class="py-16 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+                <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="max-w-4xl mx-auto">
+                        <!-- Header -->
+                        <div class="text-center mb-12">
+                            <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                                Upload Your Code
+                            </h1>
+                            <p class="text-xl text-gray-600">
+                                Upload ZIP files or connect your GitHub repository for comprehensive AI-powered analysis
+                            </p>
+                        </div>
+                        
+                        <!-- Session Check Card -->
+                        <div id="session-card" class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+                            <div class="text-center space-y-6">
+                                <div class="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto">
+                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-2xl font-bold text-gray-900">Start Your Free Demo Session</h2>
+                                <p class="text-gray-600 max-w-md mx-auto">
+                                    Enter your email to begin a 7-minute demo session. No registration or payment required.
+                                </p>
+                                
+                                <!-- Email Form -->
+                                <form id="email-form" class="max-w-sm mx-auto">
+                                    <div class="flex flex-col sm:flex-row gap-3">
+                                        <input type="email" 
+                                               id="email-input"
+                                               name="email" 
+                                               placeholder="your@email.com" 
+                                               required
+                                               class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                        <button type="submit" 
+                                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                            Start Demo
+                                        </button>
+                                    </div>
+                                </form>
+                                
+                                <div class="flex items-center justify-center space-x-6 text-sm text-gray-500">
+                                    <div class="flex items-center">
+                                        <svg class="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        7-minute free demo
+                                    </div>
+                                    <div class="flex items-center">
+                                        <svg class="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        No credit card
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- OTP Verification Card (Hidden by default) -->
+                        <div id="otp-card" class="bg-white rounded-2xl shadow-xl p-8 mb-8 hidden">
+                            <div class="text-center space-y-6">
+                                <div class="w-20 h-20 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-2xl font-bold text-gray-900">Verify Your Email</h2>
+                                <p class="text-gray-600 max-w-md mx-auto">
+                                    We've sent a 6-digit code to <span id="email-display" class="font-semibold text-blue-600"></span>
+                                </p>
+                                
+                                <!-- OTP Form -->
+                                <form id="otp-form" class="max-w-xs mx-auto">
+                                    <div class="flex gap-2 justify-center mb-4">
+                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                    </div>
+                                    <button type="submit" 
+                                            class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                        Verify & Continue
+                                    </button>
+                                </form>
+                                
+                                <button type="button" onclick="resendOTP()" class="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200">
+                                    Didn't receive the code? Resend
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Form (Hidden by default) -->
+                        <div id="upload-form-card" class="bg-white rounded-2xl shadow-xl p-8 hidden">
+                            <!-- Timer Display -->
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-2xl font-bold text-gray-900">Upload Your Code</h2>
+                                <div class="flex items-center space-x-2 text-sm">
+                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span class="font-medium text-gray-700">Time remaining: <span id="timer" class="text-blue-600 font-bold">7:00</span></span>
+                                </div>
+                            </div>
+                            
+                            <!-- Upload Options -->
+                            <div class="space-y-6">
+                                <!-- File Upload -->
+                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-500 transition-colors duration-300">
+                                    <form id="file-upload-form" enctype="multipart/form-data">
+                                        <input type="file" 
+                                               id="file-input" 
+                                               name="codeFile"
+                                               accept=".zip,.tar,.tar.gz,.7z,.rar" 
+                                               class="hidden">
+                                        <label for="file-input" class="cursor-pointer">
+                                            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                                </svg>
+                                            </div>
+                                            <p class="text-lg font-medium text-gray-900 mb-2">
+                                                Drop files here or click to upload
+                                            </p>
+                                            <p class="text-sm text-gray-500">
+                                                Supports ZIP, TAR, TAR.GZ, 7Z, RAR (Max 50MB)
+                                            </p>
+                                        </label>
+                                    </form>
+                                    
+                                    <!-- File Preview -->
+                                    <div id="file-preview" class="hidden mt-4 p-4 bg-gray-50 rounded-lg">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-3">
+                                                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                                </svg>
+                                                <div>
+                                                    <p id="file-name" class="font-medium text-gray-900"></p>
+                                                    <p id="file-size" class="text-sm text-gray-500"></p>
+                                                </div>
+                                            </div>
+                                            <button type="button" onclick="removeFile()" class="text-red-600 hover:text-red-700">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- OR Divider -->
+                                <div class="relative">
+                                    <div class="absolute inset-0 flex items-center">
+                                        <div class="w-full border-t border-gray-300"></div>
+                                    </div>
+                                    <div class="relative flex justify-center text-sm">
+                                        <span class="px-4 bg-white text-gray-500">OR</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- GitHub Integration -->
+                                <div class="bg-gray-50 rounded-xl p-6">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center">
+                                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"></path>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 class="font-semibold text-gray-900">Connect GitHub Repository</h3>
+                                                <p class="text-sm text-gray-500">Analyze directly from your repository</p>
+                                            </div>
+                                        </div>
+                                        <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Coming Soon</span>
+                                    </div>
+                                    <input type="text" 
+                                           placeholder="https://github.com/username/repository" 
+                                           disabled
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed">
+                                </div>
+                                
+                                <!-- Submit Button -->
+                                <button type="button" 
+                                        onclick="startAnalysis()"
+                                        class="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span class="flex items-center justify-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                                        </svg>
+                                        Start Analysis
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Supported Languages -->
+                        <div class="mt-12 text-center">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Supported Languages</h3>
+                            <div class="flex flex-wrap justify-center gap-3">
+                                <span class="px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">Java</span>
+                                <span class="px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-medium">Python</span>
+                                <span class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium">JavaScript</span>
+                                <span class="px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">TypeScript</span>
+                                <span class="px-4 py-2 bg-red-100 text-red-700 rounded-full text-sm font-medium">Ruby</span>
+                                <span class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">Go</span>
+                                <span class="px-4 py-2 bg-pink-100 text-pink-700 rounded-full text-sm font-medium">C++</span>
+                                <span class="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">And more...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </th:block>
+        
+        <!-- Scripts -->
+        <th:block th:fragment="scripts">
+            <script>
+                // Track page view
+                if (typeof gtag !== 'undefined') {
+                    gtag('event', 'page_view', {
+                        page_title: 'Upload Code - Smart Code Review',
+                        page_location: window.location.href
+                    });
+                }
+                
+                // Initialize upload functionality
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Check for existing session
+                    const app = window.smartCodeReviewApp;
+                    if (app && app.sessionData && app.sessionData.isActive) {
+                        // Show upload form directly
+                        document.getElementById('session-card').classList.add('hidden');
+                        document.getElementById('otp-card').classList.add('hidden');
+                        document.getElementById('upload-form-card').classList.remove('hidden');
+                        app.startTimer();
+                    }
+                });
+    </script>
+</body>
+</html>

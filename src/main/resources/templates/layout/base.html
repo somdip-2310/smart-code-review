@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout">
+<head th:fragment="head">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="index, follow">
@@ -15,7 +15,7 @@
     <meta property="og:title" th:content="${title ?: 'Smart Code Review - AI-Powered Code Analysis Platform'}">
     <meta property="og:description" th:content="${description ?: 'Professional AI-powered code review service using Amazon Bedrock. Get instant security analysis, performance optimization, and code quality insights.'}">
     <meta property="og:type" content="website">
-    <meta property="og:url" th:content="'https://smartcode.somdip.dev' + ${#httpServletRequest.requestURI}">
+    <meta property="og:url" th:content="${'https://smartcode.somdip.dev' + (requestURI ?: '')}">
     <meta property="og:image" content="https://smartcode.somdip.dev/images/smart-code-og-image.jpg">
     <meta property="og:site_name" content="Smart Code Review">
     
@@ -27,7 +27,7 @@
     <meta name="twitter:creator" content="@somdiproy">
     
     <!-- Canonical URL -->
-    <link rel="canonical" th:href="'https://smartcode.somdip.dev' + ${#httpServletRequest.requestURI}">
+    <link rel="canonical" th:href="${'https://smartcode.somdip.dev' + (requestURI ?: '')}">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
@@ -42,16 +42,17 @@
     
     <!-- Stylesheets -->
     <link rel="stylesheet" href="/css/main.css" th:href="@{/css/main.css}">
-    <link rel="stylesheet" href="/css/components.css" th:href="@{/css/components.css}">
-    <link rel="stylesheet" href="/css/responsive.css" th:href="@{/css/responsive.css}">
+    
+    <!-- Tailwind CSS (for styling) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-TJMD3KM77H"></script>
-    <script>
+    <script th:if="${@environment.getProperty('google.analytics.enabled') == 'true'}" async th:src="'https://www.googletagmanager.com/gtag/js?id=' + ${@environment.getProperty('google.analytics.measurement-id')}"></script>
+    <script th:if="${@environment.getProperty('google.analytics.enabled') == 'true'}">
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-TJMD3KM77H', {
+        gtag('config', /*[[${@environment.getProperty('google.analytics.measurement-id')}]]*/ 'G-TJMD3KM77H', {
             page_title: document.title,
             page_location: window.location.href,
             anonymize_ip: true,
@@ -97,11 +98,11 @@
     </script>
     
     <!-- Additional head content for specific pages -->
-    <th:block th:fragment="head-extras"></th:block>
+    <th:block th:replace="${head-extras}"></th:block>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
     <!-- Skip to main content for accessibility -->
-    <a href="#main-content" class="skip-to-content sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">
         Skip to main content
     </a>
     
@@ -110,7 +111,7 @@
     
     <!-- Main Content -->
     <main id="main-content" class="flex-1">
-        <th:block th:fragment="content"></th:block>
+        <th:block th:replace="${content}"></th:block>
     </main>
     
     <!-- Footer -->
@@ -132,7 +133,7 @@
     <script src="/js/app.js" th:src="@{/js/app.js}"></script>
     
     <!-- Page-specific JavaScript -->
-    <th:block th:fragment="scripts"></th:block>
+    <th:block th:replace="${scripts}"></th:block>
     
     <!-- Service Worker Registration -->
     <script>

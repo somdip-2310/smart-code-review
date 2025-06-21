@@ -65,16 +65,19 @@ public class SmartCodeViewController {
     }
     
     /**
-     * Analyze page - Code paste interface
+     * Analyze page - Github Connect
      */
-    @GetMapping("/analyze")
-    public String analyze(Model model) {
-        model.addAttribute("title", "Paste Code for Analysis - Smart Code Review | Somdip Roy");
-        model.addAttribute("description", "Paste your code directly for instant AI-powered analysis. Get security insights, performance recommendations, and quality metrics in minutes.");
-        model.addAttribute("currentPage", "analyze");
+    @GetMapping("/github-connect")
+    public String githubConnect(Model model) {
+        model.addAttribute("title", "Connect GitHub - Smart Code Review | Somdip Roy");
+        model.addAttribute("description", "Set up automated code analysis with GitHub webhooks for continuous integration.");
+        model.addAttribute("currentPage", "github");
         model.addAttribute("googleAnalyticsId", googleAnalyticsId);
         
-        return "smartcode/analyze";
+        // Generate session-specific webhook URL if user has active session
+        // Add logic to retrieve session token
+        
+        return "smartcode/github-connect";
     }
     
     /**

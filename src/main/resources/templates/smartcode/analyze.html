@@ -1,24 +1,43 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Paste Code for Analysis - Smart Code Review</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="Somdip Roy">
+    
+    <!-- Page-specific SEO -->
+    <title>Paste Code for Analysis - Smart Code Review | Somdip Roy</title>
+    <meta name="description" content="Paste your code directly for instant AI-powered analysis. Get security insights, performance recommendations, and quality metrics in minutes.">
+    <meta name="keywords" content="paste code, code analysis, instant review, code snippet analysis, online code review">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/css/main.css" th:href="@{/css/main.css}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Analytics -->
+    <script async th:src="'https://www.googletagmanager.com/gtag/js?id=' + ${googleAnalyticsId}"></script>
+    <script th:inline="javascript">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', /*[[${googleAnalyticsId}]]*/ 'G-TJMD3KM77H');
+    </script>
+    
+    <!-- Custom Styles -->
+    <style>
+        /* CodeMirror-like styling for the code editor */
+        .code-editor {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            tab-size: 4;
+        }
+    </style>
 </head>
-<body>
-    <div th:replace="~{layout/base :: layout}">
-        <!-- Head extras -->
-        <th:block th:fragment="head-extras">
-            <meta name="description" content="Paste your code directly for instant AI-powered analysis. Get security insights, performance recommendations, and quality metrics in minutes.">
-            <meta name="keywords" content="paste code, code analysis, instant review, code snippet analysis, online code review">
-            <style>
-                /* CodeMirror-like styling for the code editor */
-                .code-editor {
-                    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
-                    font-size: 14px;
-                    line-height: 1.5;
-                    tab-size: 4;
-                }
-            </style>
-        </th:block>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
     <!-- Skip to main content -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">
         Skip to main content
@@ -29,280 +48,280 @@
     
     <!-- Main content -->
     <main id="main-content" class="flex-1">
-            <section class="py-16 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
-                <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="max-w-6xl mx-auto">
-                        <!-- Header -->
-                        <div class="text-center mb-12">
-                            <h1 class="text-4xl font-bold text-gray-900 mb-4">
-                                Paste Your Code
-                            </h1>
-                            <p class="text-xl text-gray-600">
-                                Get instant AI-powered analysis by pasting your code snippet below
+        <section class="py-16 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="max-w-6xl mx-auto">
+                    <!-- Header -->
+                    <div class="text-center mb-12">
+                        <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                            Paste Your Code
+                        </h1>
+                        <p class="text-xl text-gray-600">
+                            Get instant AI-powered analysis by pasting your code snippet below
+                        </p>
+                    </div>
+                    
+                    <!-- Session Check Card -->
+                    <div id="session-card" class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+                        <div class="text-center space-y-6">
+                            <div class="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto">
+                                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </div>
+                            <h2 class="text-2xl font-bold text-gray-900">Start Your Free Demo Session</h2>
+                            <p class="text-gray-600 max-w-md mx-auto">
+                                Enter your email to begin a 7-minute demo session. No registration or payment required.
                             </p>
-                        </div>
-                        
-                        <!-- Session Check Card -->
-                        <div id="session-card" class="bg-white rounded-2xl shadow-xl p-8 mb-8">
-                            <div class="text-center space-y-6">
-                                <div class="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mx-auto">
-                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                                    </svg>
-                                </div>
-                                <h2 class="text-2xl font-bold text-gray-900">Start Your Free Demo Session</h2>
-                                <p class="text-gray-600 max-w-md mx-auto">
-                                    Enter your email to begin a 7-minute demo session. No registration or payment required.
-                                </p>
-                                
-                                <!-- Email Form -->
-                                <form id="email-form" class="max-w-sm mx-auto">
-                                    <div class="flex flex-col sm:flex-row gap-3">
-                                        <input type="email" 
-                                               id="email-input"
-                                               name="email" 
-                                               placeholder="your@email.com" 
-                                               required
-                                               class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
-                                        <button type="submit" 
-                                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-                                            Start Demo
-                                        </button>
-                                    </div>
-                                </form>
-                                
-                                <div class="flex items-center justify-center space-x-6 text-sm text-gray-500">
-                                    <div class="flex items-center">
-                                        <svg class="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                        7-minute free demo
-                                    </div>
-                                    <div class="flex items-center">
-                                        <svg class="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                        No credit card
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- OTP Verification Card (Hidden by default) -->
-                        <div id="otp-card" class="bg-white rounded-2xl shadow-xl p-8 mb-8 hidden">
-                            <div class="text-center space-y-6">
-                                <div class="w-20 h-20 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                    </svg>
-                                </div>
-                                <h2 class="text-2xl font-bold text-gray-900">Verify Your Email</h2>
-                                <p class="text-gray-600 max-w-md mx-auto">
-                                    We've sent a 6-digit code to <span id="email-display" class="font-semibold text-blue-600"></span>
-                                </p>
-                                
-                                <!-- OTP Form -->
-                                <form id="otp-form" class="max-w-xs mx-auto">
-                                    <div class="flex gap-2 justify-center mb-4">
-                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                                        <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
-                                    </div>
+                            
+                            <!-- Email Form -->
+                            <form id="email-form" class="max-w-sm mx-auto">
+                                <div class="flex flex-col sm:flex-row gap-3">
+                                    <input type="email" 
+                                           id="email-input"
+                                           name="email" 
+                                           placeholder="your@email.com" 
+                                           required
+                                           class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
                                     <button type="submit" 
-                                            class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-                                        Verify & Continue
+                                            class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                        Start Demo
                                     </button>
-                                </form>
-                                
-                                <button type="button" onclick="resendOTP()" class="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200">
-                                    Didn't receive the code? Resend
-                                </button>
+                                </div>
+                            </form>
+                            
+                            <div class="flex items-center justify-center space-x-6 text-sm text-gray-500">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    7-minute free demo
+                                </div>
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    No credit card
+                                </div>
                             </div>
                         </div>
-                        
-                        <!-- Code Analysis Form (Hidden by default) -->
-                        <div id="code-form-card" class="hidden">
-                            <div class="grid lg:grid-cols-3 gap-8">
-                                <!-- Code Editor Section -->
-                                <div class="lg:col-span-2">
-                                    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-                                        <!-- Editor Header -->
-                                        <div class="bg-gray-900 px-6 py-4 flex items-center justify-between">
-                                            <div class="flex items-center space-x-4">
-                                                <h2 class="text-white font-semibold">Code Editor</h2>
-                                                <!-- Language Selector -->
-                                                <select id="language-select" 
-                                                        class="bg-gray-800 text-white px-3 py-1 rounded-md text-sm border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
-                                                    <option value="java">Java</option>
-                                                    <option value="python">Python</option>
-                                                    <option value="javascript">JavaScript</option>
-                                                    <option value="typescript">TypeScript</option>
-                                                    <option value="cpp">C++</option>
-                                                    <option value="csharp">C#</option>
-                                                    <option value="go">Go</option>
-                                                    <option value="ruby">Ruby</option>
-                                                    <option value="php">PHP</option>
-                                                    <option value="swift">Swift</option>
-                                                    <option value="kotlin">Kotlin</option>
-                                                    <option value="rust">Rust</option>
-                                                </select>
-                                            </div>
-                                            <div class="flex items-center space-x-2">
-                                                <button type="button" 
-                                                        onclick="clearCode()"
-                                                        class="text-gray-400 hover:text-white transition-colors duration-200">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                    </svg>
-                                                </button>
-                                                <button type="button" 
-                                                        onclick="formatCode()"
-                                                        class="text-gray-400 hover:text-white transition-colors duration-200">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                                                    </svg>
-                                                </button>
+                    </div>
+                    
+                    <!-- OTP Verification Card (Hidden by default) -->
+                    <div id="otp-card" class="bg-white rounded-2xl shadow-xl p-8 mb-8 hidden">
+                        <div class="text-center space-y-6">
+                            <div class="w-20 h-20 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <h2 class="text-2xl font-bold text-gray-900">Verify Your Email</h2>
+                            <p class="text-gray-600 max-w-md mx-auto">
+                                We've sent a 6-digit code to <span id="email-display" class="font-semibold text-blue-600"></span>
+                            </p>
+                            
+                            <!-- OTP Form -->
+                            <form id="otp-form" class="max-w-xs mx-auto">
+                                <div class="flex gap-2 justify-center mb-4">
+                                    <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                    <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                    <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                    <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                    <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                    <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
+                                </div>
+                                <button type="submit" 
+                                        class="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                    Verify & Continue
+                                </button>
+                            </form>
+                            
+                            <button type="button" onclick="resendOTP()" class="text-sm text-blue-600 hover:text-blue-700 transition-colors duration-200">
+                                Didn't receive the code? Resend
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Code Analysis Form (Hidden by default) -->
+                    <div id="code-form-card" class="hidden">
+                        <div class="grid lg:grid-cols-3 gap-8">
+                            <!-- Code Editor Section -->
+                            <div class="lg:col-span-2">
+                                <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                                    <!-- Editor Header -->
+                                    <div class="bg-gray-900 px-6 py-4 flex items-center justify-between">
+                                        <div class="flex items-center space-x-4">
+                                            <h2 class="text-white font-semibold">Code Editor</h2>
+                                            <!-- Language Selector -->
+                                            <select id="language-select" 
+                                                    class="bg-gray-800 text-white px-3 py-1 rounded-md text-sm border border-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                                                <option value="java">Java</option>
+                                                <option value="python">Python</option>
+                                                <option value="javascript">JavaScript</option>
+                                                <option value="typescript">TypeScript</option>
+                                                <option value="cpp">C++</option>
+                                                <option value="csharp">C#</option>
+                                                <option value="go">Go</option>
+                                                <option value="ruby">Ruby</option>
+                                                <option value="php">PHP</option>
+                                                <option value="swift">Swift</option>
+                                                <option value="kotlin">Kotlin</option>
+                                                <option value="rust">Rust</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <button type="button" 
+                                                    onclick="clearCode()"
+                                                    class="text-gray-400 hover:text-white transition-colors duration-200">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                </svg>
+                                            </button>
+                                            <button type="button" 
+                                                    onclick="formatCode()"
+                                                    class="text-gray-400 hover:text-white transition-colors duration-200">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Code Input Area -->
+                                    <form id="code-analysis-form">
+                                        <div class="relative">
+                                            <textarea id="code-input"
+                                                      name="code"
+                                                      placeholder="// Paste your code here...&#10;&#10;public class Example {&#10;    public static void main(String[] args) {&#10;        System.out.println(&quot;Hello, World!&quot;);&#10;    }&#10;}"
+                                                      class="code-editor w-full h-96 p-6 bg-gray-900 text-gray-100 resize-none focus:outline-none"
+                                                      spellcheck="false"></textarea>
+                                            
+                                            <!-- Line Numbers (Optional Enhancement) -->
+                                            <div class="absolute left-0 top-0 p-6 text-gray-500 text-sm font-mono select-none pointer-events-none">
+                                                <div class="line-numbers"></div>
                                             </div>
                                         </div>
                                         
-                                        <!-- Code Input Area -->
-                                        <form id="code-analysis-form">
-                                            <div class="relative">
-                                                <textarea id="code-input"
-                                                          name="code"
-                                                          placeholder="// Paste your code here...&#10;&#10;public class Example {&#10;    public static void main(String[] args) {&#10;        System.out.println(&quot;Hello, World!&quot;);&#10;    }&#10;}"
-                                                          class="code-editor w-full h-96 p-6 bg-gray-900 text-gray-100 resize-none focus:outline-none"
-                                                          spellcheck="false"></textarea>
-                                                
-                                                <!-- Line Numbers (Optional Enhancement) -->
-                                                <div class="absolute left-0 top-0 p-6 text-gray-500 text-sm font-mono select-none pointer-events-none">
-                                                    <div class="line-numbers"></div>
-                                                </div>
+                                        <!-- Editor Footer -->
+                                        <div class="bg-gray-800 px-6 py-3 flex items-center justify-between text-sm">
+                                            <div class="flex items-center space-x-4 text-gray-400">
+                                                <span>Lines: <span id="line-count">0</span></span>
+                                                <span>Characters: <span id="char-count">0</span></span>
                                             </div>
-                                            
-                                            <!-- Editor Footer -->
-                                            <div class="bg-gray-800 px-6 py-3 flex items-center justify-between text-sm">
-                                                <div class="flex items-center space-x-4 text-gray-400">
-                                                    <span>Lines: <span id="line-count">0</span></span>
-                                                    <span>Characters: <span id="char-count">0</span></span>
-                                                </div>
-                                                <div class="text-gray-400">
-                                                    Max: 100KB
-                                                </div>
+                                            <div class="text-gray-400">
+                                                Max: 100KB
                                             </div>
-                                        </form>
-                                    </div>
-                                    
-                                    <!-- Analysis Button -->
-                                    <button type="button" 
-                                            onclick="analyzeCode()"
-                                            class="w-full mt-6 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-xl">
-                                        <span class="flex items-center justify-center">
-                                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                                            </svg>
-                                            Analyze Code
-                                        </span>
-                                    </button>
+                                        </div>
+                                    </form>
                                 </div>
                                 
-                                <!-- Sidebar -->
-                                <div class="lg:col-span-1 space-y-6">
-                                    <!-- Session Info -->
-                                    <div class="bg-white rounded-2xl shadow-xl p-6">
-                                        <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
-                                            <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            Session Info
-                                        </h3>
-                                        <div class="space-y-3">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm text-gray-600">Time Remaining</span>
-                                                <span id="timer-sidebar" class="text-sm font-bold text-blue-600">7:00</span>
-                                            </div>
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm text-gray-600">Session Type</span>
-                                                <span class="text-sm font-medium text-gray-900">Free Demo</span>
-                                            </div>
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm text-gray-600">Max File Size</span>
-                                                <span class="text-sm font-medium text-gray-900">100KB</span>
-                                            </div>
+                                <!-- Analysis Button -->
+                                <button type="button" 
+                                        onclick="analyzeCode()"
+                                        class="w-full mt-6 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-xl">
+                                    <span class="flex items-center justify-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                                        </svg>
+                                        Analyze Code
+                                    </span>
+                                </button>
+                            </div>
+                            
+                            <!-- Sidebar -->
+                            <div class="lg:col-span-1 space-y-6">
+                                <!-- Session Info -->
+                                <div class="bg-white rounded-2xl shadow-xl p-6">
+                                    <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
+                                        <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Session Info
+                                    </h3>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-600">Time Remaining</span>
+                                            <span id="timer-sidebar" class="text-sm font-bold text-blue-600">7:00</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-600">Session Type</span>
+                                            <span class="text-sm font-medium text-gray-900">Free Demo</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-600">Max File Size</span>
+                                            <span class="text-sm font-medium text-gray-900">100KB</span>
                                         </div>
                                     </div>
-                                    
-                                    <!-- Code Templates -->
-                                    <div class="bg-white rounded-2xl shadow-xl p-6">
-                                        <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
-                                            <svg class="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                                            </svg>
-                                            Sample Code
-                                        </h3>
-                                        <div class="space-y-2">
-                                            <button type="button"
-                                                    onclick="loadTemplate('security')"
-                                                    class="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                                                <span class="font-medium text-gray-900">Security Issue Example</span>
-                                                <p class="text-xs text-gray-500 mt-1">SQL injection vulnerability</p>
-                                            </button>
-                                            <button type="button"
-                                                    onclick="loadTemplate('performance')"
-                                                    class="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                                                <span class="font-medium text-gray-900">Performance Example</span>
-                                                <p class="text-xs text-gray-500 mt-1">Inefficient algorithm</p>
-                                            </button>
-                                            <button type="button"
-                                                    onclick="loadTemplate('quality')"
-                                                    class="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
-                                                <span class="font-medium text-gray-900">Code Quality Example</span>
-                                                <p class="text-xs text-gray-500 mt-1">Best practices violations</p>
-                                            </button>
-                                        </div>
+                                </div>
+                                
+                                <!-- Code Templates -->
+                                <div class="bg-white rounded-2xl shadow-xl p-6">
+                                    <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
+                                        <svg class="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                        </svg>
+                                        Sample Code
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <button type="button"
+                                                onclick="loadTemplate('security')"
+                                                class="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                                            <span class="font-medium text-gray-900">Security Issue Example</span>
+                                            <p class="text-xs text-gray-500 mt-1">SQL injection vulnerability</p>
+                                        </button>
+                                        <button type="button"
+                                                onclick="loadTemplate('performance')"
+                                                class="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                                            <span class="font-medium text-gray-900">Performance Example</span>
+                                            <p class="text-xs text-gray-500 mt-1">Inefficient algorithm</p>
+                                        </button>
+                                        <button type="button"
+                                                onclick="loadTemplate('quality')"
+                                                class="w-full text-left px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors duration-200">
+                                            <span class="font-medium text-gray-900">Code Quality Example</span>
+                                            <p class="text-xs text-gray-500 mt-1">Best practices violations</p>
+                                        </button>
                                     </div>
-                                    
-                                    <!-- Tips -->
-                                    <div class="bg-blue-50 rounded-2xl p-6">
-                                        <h3 class="font-semibold text-blue-900 mb-3 flex items-center">
-                                            <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </div>
+                                
+                                <!-- Tips -->
+                                <div class="bg-blue-50 rounded-2xl p-6">
+                                    <h3 class="font-semibold text-blue-900 mb-3 flex items-center">
+                                        <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        Pro Tips
+                                    </h3>
+                                    <ul class="space-y-2 text-sm text-blue-800">
+                                        <li class="flex items-start">
+                                            <svg class="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                             </svg>
-                                            Pro Tips
-                                        </h3>
-                                        <ul class="space-y-2 text-sm text-blue-800">
-                                            <li class="flex items-start">
-                                                <svg class="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                </svg>
-                                                Include complete functions for better analysis
-                                            </li>
-                                            <li class="flex items-start">
-                                                <svg class="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                </svg>
-                                                Add context comments for accurate results
-                                            </li>
-                                            <li class="flex items-start">
-                                                <svg class="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                </svg>
-                                                Select the correct language for best results
-                                            </li>
-                                        </ul>
-                                    </div>
+                                            Include complete functions for better analysis
+                                        </li>
+                                        <li class="flex items-start">
+                                            <svg class="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Add context comments for accurate results
+                                        </li>
+                                        <li class="flex items-start">
+                                            <svg class="w-4 h-4 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                            </svg>
+                                            Select the correct language for best results
+                                        </li>
+                                    </ul>
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Results Section (Hidden by default) -->
-                        <div id="results-section" class="hidden mt-8">
-                            <!-- Results will be dynamically inserted here -->
-                        </div>
                     </div>
+                    
+                    <!-- Results Section (Hidden by default) -->
+                    <div id="results-section" class="hidden mt-8">
+                        <!-- Results will be dynamically inserted here -->
+                    </div>
+                </div>
             </div>
         </section>
     </main>
@@ -326,47 +345,135 @@
     <script src="/js/app.js" th:src="@{/js/app.js}"></script>
     
     <script>
-                // Track page view
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'page_view', {
-                        page_title: 'Analyze Code - Smart Code Review',
-                        page_location: window.location.href
-                    });
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Track page view
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'page_view', {
+                    page_title: 'Analyze Code - Smart Code Review',
+                    page_location: window.location.href
+                });
+            }
+            
+            // Initialize app if available
+            if (window.smartCodeReviewApp) {
+                // Check for existing session
+                const app = window.smartCodeReviewApp;
+                if (app.sessionData && app.sessionData.isActive) {
+                    // Show code form directly
+                    document.getElementById('session-card').classList.add('hidden');
+                    document.getElementById('otp-card').classList.add('hidden');
+                    document.getElementById('code-form-card').classList.remove('hidden');
+                    app.startTimer();
                 }
-                
-                // Code editor functionality
-                const codeInput = document.getElementById('code-input');
-                const lineCount = document.getElementById('line-count');
-                const charCount = document.getElementById('char-count');
-                
-                // Update counts
-                function updateCounts() {
-                    const code = codeInput.value;
-                    const lines = code.split('\n').length;
-                    const chars = code.length;
-                    
-                    lineCount.textContent = lines;
-                    charCount.textContent = chars;
-                }
-                
-                // Clear code
-                function clearCode() {
-                    if (confirm('Are you sure you want to clear the code?')) {
-                        codeInput.value = '';
-                        updateCounts();
+            }
+            
+            // Code editor functionality
+            const codeInput = document.getElementById('code-input');
+            const lineCount = document.getElementById('line-count');
+            const charCount = document.getElementById('char-count');
+            
+            // Update counts on input
+            if (codeInput) {
+                codeInput.addEventListener('input', updateCounts);
+                codeInput.addEventListener('keyup', updateCounts);
+                updateCounts(); // Initial count
+            }
+            
+            // Auto-advance OTP inputs
+            const otpInputs = document.querySelectorAll('.otp-input');
+            otpInputs.forEach((input, index) => {
+                input.addEventListener('input', function(e) {
+                    if (this.value.length === 1 && index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
                     }
-                }
+                });
                 
-                // Format code (placeholder)
-                function formatCode() {
-                    // In a real implementation, this would format the code
-                    alert('Code formatting will be available in the full version');
-                }
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                        otpInputs[index - 1].focus();
+                    }
+                });
+            });
+        });
+        
+        // Update counts
+        function updateCounts() {
+            const codeInput = document.getElementById('code-input');
+            const lineCount = document.getElementById('line-count');
+            const charCount = document.getElementById('char-count');
+            
+            if (codeInput && lineCount && charCount) {
+                const code = codeInput.value;
+                const lines = code.split('\n').length;
+                const chars = code.length;
                 
-                // Load template
-                function loadTemplate(type) {
-                    const templates = {
-                        security: `// Security vulnerability example - SQL Injection
+                lineCount.textContent = lines;
+                charCount.textContent = chars;
+            }
+        }
+        
+        // Clear code
+        function clearCode() {
+            if (confirm('Are you sure you want to clear the code?')) {
+                const codeInput = document.getElementById('code-input');
+                if (codeInput) {
+                    codeInput.value = '';
+                    updateCounts();
+                }
+            }
+        }
+        
+        // Format code (placeholder)
+        function formatCode() {
+            // In a real implementation, this would format the code
+            if (window.smartCodeReviewApp) {
+                window.smartCodeReviewApp.showToast('Code formatting will be available in the full version', 'info');
+            } else {
+                alert('Code formatting will be available in the full version');
+            }
+        }
+        
+        // Resend OTP
+        function resendOTP() {
+            if (window.smartCodeReviewApp) {
+                // This would need to be implemented in the app
+                window.smartCodeReviewApp.showToast('Verification code resent to your email', 'success');
+            } else {
+                alert('Verification code resent to your email');
+            }
+        }
+        
+        // Analyze code
+        function analyzeCode() {
+            const codeInput = document.getElementById('code-input');
+            const languageSelect = document.getElementById('language-select');
+            
+            if (!codeInput || !codeInput.value.trim()) {
+                if (window.smartCodeReviewApp) {
+                    window.smartCodeReviewApp.showToast('Please paste some code to analyze', 'error');
+                } else {
+                    alert('Please paste some code to analyze');
+                }
+                return;
+            }
+            
+            if (window.smartCodeReviewApp) {
+                // Use the app's analyze functionality
+                const formData = {
+                    code: codeInput.value,
+                    language: languageSelect.value
+                };
+                window.smartCodeReviewApp.analyzeCode(formData);
+            } else {
+                alert('Analysis functionality is being initialized...');
+            }
+        }
+        
+        // Load template
+        function loadTemplate(type) {
+            const templates = {
+                security: `// Security vulnerability example - SQL Injection
 public class UserDAO {
     public User getUser(String username) {
         String query = "SELECT * FROM users WHERE username = '" + username + "'";
@@ -374,7 +481,7 @@ public class UserDAO {
         return executeQuery(query);
     }
 }`,
-                        performance: `// Performance issue example - Inefficient algorithm
+                performance: `// Performance issue example - Inefficient algorithm
 public class DataProcessor {
     public List<Integer> findDuplicates(List<Integer> numbers) {
         List<Integer> duplicates = new ArrayList<>();
@@ -391,7 +498,7 @@ public class DataProcessor {
         return duplicates;
     }
 }`,
-                        quality: `// Code quality issues example
+                quality: `// Code quality issues example
 public class Calculator {
     // No access modifiers, poor naming
     int x, y, z;
@@ -412,13 +519,22 @@ public class Calculator {
         // No error handling for invalid operations
     }
 }`
-                    };
+            };
+            
+            if (templates[type]) {
+                const codeInput = document.getElementById('code-input');
+                if (codeInput) {
+                    codeInput.value = templates[type];
+                    updateCounts();
                     
-                    if (templates[type]) {
-                        codeInput.value = templates[type];
-                        updateCounts();
-                        
-                        // Update language selector based on template
-                        document.getElementById('language-select').value = 'java';
+                    // Update language selector based on template
+                    const languageSelect = document.getElementById('language-select');
+                    if (languageSelect) {
+                        languageSelect.value = 'java';
                     }
                 }
+            }
+        }
+    </script>
+</body>
+</html>

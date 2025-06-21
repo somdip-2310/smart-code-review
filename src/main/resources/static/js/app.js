@@ -169,46 +169,93 @@ class SmartCodeReviewApp {
     /**
      * Handle email form submission for session creation
      */
-    async handleEmailSubmission(form) {
-        const formData = new FormData(form);
-        const email = formData.get('email');
-        const name = formData.get('name');
-        
-        if (!this.validateEmail(email)) {
-            this.showToast('Please enter a valid email address', 'error');
-            return;
-        }
-        
-        this.showLoading('Sending verification code...');
-        
-        try {
-            const response = await fetch(`${this.API_BASE}/api/v1/code-review/session/create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, name })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                this.showOtpForm(data.sessionId, email);
-                this.trackEvent('otp_sent', {
-                    event_category: 'engagement',
-                    event_label: 'session_creation'
-                });
-                this.showToast('Verification code sent to your email', 'success');
-            } else {
-                throw new Error(data.message || 'Failed to create session');
-            }
-        } catch (error) {
-            console.error('Error creating session:', error);
-            this.showToast(error.message || 'Failed to send verification code', 'error');
-        } finally {
-            this.hideLoading();
-        }
-    }
+	async handleEmailSubmission(form) {
+	    const formData = new FormData(form);
+	    const email = formData.get('email');
+	    const name = formData.get('name');
+	    
+	    if (!this.validateEmail(email)) {
+	        this.showToast('Please enter a valid email address', 'error');
+	        return;
+	    }
+	    
+	    this.showLoading('Sending verification code...');
+	    
+	    try {
+	        const response = await fetch(`${this.API_BASE}/api/v1/code-review/session/create`, {
+	            method: 'POST',
+	            headers: {
+	                'Content-Type': 'application/json',
+	                'Accept': 'application/json'
+	            },
+	            body: JSON.stringify({ email, name })
+	        });
+	        
+	        // Check if the response is ok (status in the range 200-299)
+	        if (!response.ok) {
+	            // Try to get error message from response
+	            let errorMessage = `Server error: ${response.status}`;
+	            try {
+	                const errorData = await response.json();
+	                errorMessage = errorData.message || errorMessage;
+	            } catch (e) {
+	                // If response is not JSON, use status text
+	                errorMessage = response.statusText || errorMessage;
+	            }
+	            throw new Error(errorMessage);
+	        }
+	        
+	        const data = await response.json();
+	        
+	        if (data.success) {
+	            // Store session ID for later use
+	            this.currentSessionId = data.sessionId;
+	            
+	            // Show OTP form
+	            this.showOtpForm(data.sessionId, email);
+	            
+	            // Track analytics event
+	            this.trackEvent('otp_sent', {
+	                event_category: 'engagement',
+	                event_label: 'session_creation'
+	            });
+	            
+	            // Show success message
+	            this.showToast('Verification code sent to your email', 'success');
+	            
+	            // Log for debugging (remove in production)
+	            console.log('Session created successfully:', data.sessionId);
+	        } else {
+	            throw new Error(data.message || 'Failed to create session');
+	        }
+	    } catch (error) {
+	        console.error('Error creating session:', error);
+	        
+	        // Provide user-friendly error messages
+	        let userMessage = 'Failed to send verification code. Please try again.';
+	        
+	        if (error.message.includes('404')) {
+	            userMessage = 'Service not available. Please check your connection.';
+	        } else if (error.message.includes('500')) {
+	            userMessage = 'Server error. Please try again later.';
+	        } else if (error.message.includes('network')) {
+	            userMessage = 'Network error. Please check your internet connection.';
+	        } else if (error.message) {
+	            userMessage = error.message;
+	        }
+	        
+	        this.showToast(userMessage, 'error');
+	        
+	        // Track error event
+	        this.trackEvent('session_error', {
+	            event_category: 'error',
+	            event_label: 'session_creation',
+	            error_message: error.message
+	        });
+	    } finally {
+	        this.hideLoading();
+	    }
+	}
     
     /**
      * Handle OTP form submission for session verification

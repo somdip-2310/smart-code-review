@@ -1,10 +1,17 @@
 package com.somdiproy.smartcode.dto;
 
+/**
+ * Issue Type Categories
+ * 
+ * @author Somdip Roy
+ */
 public enum IssueType {
+    BUG,
+    VULNERABILITY,
+    CODE_SMELL,
     SECURITY,
     PERFORMANCE,
-    CODE_SMELL,
-    BUG,
-    MAINTAINABILITY,
-    STYLE
+    BEST_PRACTICE,
+    DOCUMENTATION,
+    DESIGN
 }

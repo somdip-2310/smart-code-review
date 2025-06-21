@@ -1,4 +1,3 @@
-// ===== CacheConfig.java =====
 package com.somdiproy.smartcode.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -8,6 +7,7 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 @Configuration
@@ -24,10 +24,9 @@ public class CacheConfig {
             .expireAfterWrite(30, TimeUnit.MINUTES)
             .recordStats());
         
-        // Set cache names
-        cacheManager.setCacheNames("analysis", "sessions");
+        // Set cache names - using Arrays.asList to create a List<String>
+        cacheManager.setCacheNames(Arrays.asList("analysis", "sessions"));
         
         return cacheManager;
     }
 }
-

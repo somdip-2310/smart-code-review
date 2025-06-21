@@ -6,9 +6,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.somdiproy.smartcode.service.AnalysisStorageService;
+import com.somdiproy.smartcode.service.S3Service;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.io.ByteArrayOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Code Analysis Service
@@ -151,7 +155,7 @@ public class CodeAnalysisService {
             updateAnalysisProgress(analysisId, 20, "Uploading file to S3...");
             
             // Upload to S3
-            String s3Key = s3Service.uploadFile(file, analysisId);
+            String s3Key = s3Service.uploadZipFile(file, analysisId);
             
             updateAnalysisProgress(analysisId, 40, "Extracting code from ZIP...");
             
@@ -255,8 +259,52 @@ public class CodeAnalysisService {
      * Extract code from ZIP file
      */
     private String extractCodeFromZip(MultipartFile file) {
-        // TODO: Implement ZIP extraction logic using zip4j
-        // This is a placeholder - implement actual extraction
-        return "// Extracted code placeholder\n// Implement ZIP extraction logic here";
+        StringBuilder extractedCode = new StringBuilder();
+        
+        try (ZipInputStream zis = new ZipInputStream(file.getInputStream())) {
+            ZipEntry zipEntry;
+            
+            while ((zipEntry = zis.getNextEntry()) != null) {
+                if (!zipEntry.isDirectory() && isCodeFile(zipEntry.getName())) {
+                    // Read file content
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[1024];
+                    int len;
+                    
+                    while ((len = zis.read(buffer)) > 0) {
+                        baos.write(buffer, 0, len);
+                    }
+                    
+                    String fileContent = baos.toString("UTF-8");
+                    extractedCode.append("// File: ").append(zipEntry.getName()).append("\n");
+                    extractedCode.append(fileContent).append("\n\n");
+                }
+                zis.closeEntry();
+            }
+        } catch (Exception e) {
+            logger.error("Error extracting code from ZIP", e);
+            throw new RuntimeException("Failed to extract code from ZIP", e);
+        }
+        
+        return extractedCode.toString();
+    }
+
+    /**
+     * Check if file is a code file based on extension
+     */
+    private boolean isCodeFile(String fileName) {
+        String[] codeExtensions = {
+            ".java", ".py", ".js", ".ts", ".cpp", ".c", ".cs", ".go", 
+            ".rb", ".php", ".swift", ".kt", ".rs", ".scala", ".html", 
+            ".css", ".xml", ".json", ".yaml", ".yml", ".sql"
+        };
+        
+        String lowerFileName = fileName.toLowerCase();
+        for (String ext : codeExtensions) {
+            if (lowerFileName.endsWith(ext)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

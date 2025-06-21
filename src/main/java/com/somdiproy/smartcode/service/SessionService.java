@@ -1,10 +1,6 @@
 package com.somdiproy.smartcode.service;
 
 import com.somdiproy.smartcode.dto.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,7 +96,7 @@ public class SessionService {
             pendingSessions.put(sessionId, sessionData);
             
             // Send OTP email
-            emailService.sendOtpEmail(request.getEmail(), request.getName(), otp);
+            emailService.sendOtpEmail(request.getEmail(), otp, sessionId);
             
             logger.info("Session created: {} for email: {}", sessionId, maskEmail(request.getEmail()));
             
@@ -240,15 +236,17 @@ public class SessionService {
     }
     
     /**
-     * Get remaining session time in minutes
+     * Get remaining session time in milliseconds
      */
-    public int getRemainingTime(String sessionToken) {
+    public long getRemainingTime(String sessionToken) {
         SessionData sessionData = getSessionByToken(sessionToken);
         if (sessionData == null) {
             return 0;
         }
         
-        return calculateRemainingMinutes(sessionData);
+        long sessionAge = System.currentTimeMillis() - sessionData.getCreatedAt();
+        long sessionDurationMs = sessionDurationMinutes * 60 * 1000;
+        return Math.max(0, sessionDurationMs - sessionAge);
     }
     
     /**
@@ -376,12 +374,8 @@ public class SessionService {
     }
     
     /**
-     * Session Data inner class with Lombok annotations
+     * Session Data inner class WITHOUT Lombok
      */
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class SessionData {
         private String sessionId;
         private String email;
@@ -393,5 +387,181 @@ public class SessionService {
         private boolean verified;
         private int analysisCount;
         private int otpAttempts;
+        
+        // Default constructor
+        public SessionData() {
+        }
+        
+        // Constructor with all fields
+        public SessionData(String sessionId, String email, String name, String company, 
+                          String otp, String sessionToken, long createdAt, boolean verified,
+                          int analysisCount, int otpAttempts) {
+            this.sessionId = sessionId;
+            this.email = email;
+            this.name = name;
+            this.company = company;
+            this.otp = otp;
+            this.sessionToken = sessionToken;
+            this.createdAt = createdAt;
+            this.verified = verified;
+            this.analysisCount = analysisCount;
+            this.otpAttempts = otpAttempts;
+        }
+        
+        // Builder pattern
+        public static SessionDataBuilder builder() {
+            return new SessionDataBuilder();
+        }
+        
+        // Getters and Setters
+        public String getSessionId() {
+            return sessionId;
+        }
+        
+        public void setSessionId(String sessionId) {
+            this.sessionId = sessionId;
+        }
+        
+        public String getEmail() {
+            return email;
+        }
+        
+        public void setEmail(String email) {
+            this.email = email;
+        }
+        
+        public String getName() {
+            return name;
+        }
+        
+        public void setName(String name) {
+            this.name = name;
+        }
+        
+        public String getCompany() {
+            return company;
+        }
+        
+        public void setCompany(String company) {
+            this.company = company;
+        }
+        
+        public String getOtp() {
+            return otp;
+        }
+        
+        public void setOtp(String otp) {
+            this.otp = otp;
+        }
+        
+        public String getSessionToken() {
+            return sessionToken;
+        }
+        
+        public void setSessionToken(String sessionToken) {
+            this.sessionToken = sessionToken;
+        }
+        
+        public long getCreatedAt() {
+            return createdAt;
+        }
+        
+        public void setCreatedAt(long createdAt) {
+            this.createdAt = createdAt;
+        }
+        
+        public boolean isVerified() {
+            return verified;
+        }
+        
+        public void setVerified(boolean verified) {
+            this.verified = verified;
+        }
+        
+        public int getAnalysisCount() {
+            return analysisCount;
+        }
+        
+        public void setAnalysisCount(int analysisCount) {
+            this.analysisCount = analysisCount;
+        }
+        
+        public int getOtpAttempts() {
+            return otpAttempts;
+        }
+        
+        public void setOtpAttempts(int otpAttempts) {
+            this.otpAttempts = otpAttempts;
+        }
+        
+        // Builder class for SessionData
+        public static class SessionDataBuilder {
+            private String sessionId;
+            private String email;
+            private String name;
+            private String company;
+            private String otp;
+            private String sessionToken;
+            private long createdAt;
+            private boolean verified;
+            private int analysisCount;
+            private int otpAttempts;
+            
+            public SessionDataBuilder sessionId(String sessionId) {
+                this.sessionId = sessionId;
+                return this;
+            }
+            
+            public SessionDataBuilder email(String email) {
+                this.email = email;
+                return this;
+            }
+            
+            public SessionDataBuilder name(String name) {
+                this.name = name;
+                return this;
+            }
+            
+            public SessionDataBuilder company(String company) {
+                this.company = company;
+                return this;
+            }
+            
+            public SessionDataBuilder otp(String otp) {
+                this.otp = otp;
+                return this;
+            }
+            
+            public SessionDataBuilder sessionToken(String sessionToken) {
+                this.sessionToken = sessionToken;
+                return this;
+            }
+            
+            public SessionDataBuilder createdAt(long createdAt) {
+                this.createdAt = createdAt;
+                return this;
+            }
+            
+            public SessionDataBuilder verified(boolean verified) {
+                this.verified = verified;
+                return this;
+            }
+            
+            public SessionDataBuilder analysisCount(int analysisCount) {
+                this.analysisCount = analysisCount;
+                return this;
+            }
+            
+            public SessionDataBuilder otpAttempts(int otpAttempts) {
+                this.otpAttempts = otpAttempts;
+                return this;
+            }
+            
+            public SessionData build() {
+                return new SessionData(sessionId, email, name, company, otp, 
+                                     sessionToken, createdAt, verified, 
+                                     analysisCount, otpAttempts);
+            }
+        }
     }
 }

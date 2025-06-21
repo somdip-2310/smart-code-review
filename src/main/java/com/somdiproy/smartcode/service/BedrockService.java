@@ -13,8 +13,8 @@ import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -276,15 +276,18 @@ public class BedrockService {
     /**
      * Parse issues from response
      */
-    private List<CodeIssue> parseIssues(List<Map<String, Object>> issuesData) {
-        List<CodeIssue> issues = new ArrayList<>();
+    /**
+     * Parse issues from response
+     */
+    private List<Issue> parseIssues(List<Map<String, Object>> issuesData) {
+        List<Issue> issues = new ArrayList<>();
         
         if (issuesData != null) {
             for (Map<String, Object> issueData : issuesData) {
                 try {
-                    CodeIssue issue = CodeIssue.builder()
-                            .severity(IssueSeverity.valueOf((String) issueData.getOrDefault("severity", "MEDIUM")))
-                            .type(IssueType.valueOf((String) issueData.getOrDefault("type", "CODE_SMELL")))
+                    Issue issue = Issue.builder()
+                            .severity(issueData.getOrDefault("severity", "MEDIUM").toString())
+                            .type(issueData.getOrDefault("type", "CODE_SMELL").toString())
                             .title((String) issueData.get("title"))
                             .description((String) issueData.get("description"))
                             .lineNumber(((Number) issueData.getOrDefault("lineNumber", 0)).intValue())

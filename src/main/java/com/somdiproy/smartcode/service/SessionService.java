@@ -1,16 +1,21 @@
 package com.somdiproy.smartcode.service;
 
 import com.somdiproy.smartcode.dto.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,18 +45,40 @@ public class SessionService {
     @Value("${demo.session.cleanup.interval:300000}")
     private long cleanupIntervalMs;
     
+    @Value("${demo.session.max.analysis:5}")
+    private int maxAnalysisPerSession;
+    
     @Autowired
     private EmailService emailService;
     
     // In-memory storage for demo sessions (use Redis in production)
     private final Map<String, SessionData> activeSessions = new ConcurrentHashMap<>();
     private final Map<String, SessionData> pendingSessions = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionTokenToId = new ConcurrentHashMap<>();
     
     /**
      * Create a new demo session
      */
     public SessionResponse createSession(SessionRequest request) {
         try {
+            // Validate email
+            if (request.getEmail() == null || !isValidEmail(request.getEmail())) {
+                return SessionResponse.builder()
+                        .success(false)
+                        .message("Invalid email address")
+                        .build();
+            }
+            
+            // Check if user already has an active session
+            SessionData existingSession = findActiveSessionByEmail(request.getEmail());
+            if (existingSession != null) {
+                return SessionResponse.builder()
+                        .success(false)
+                        .message("You already have an active session. Please use the existing session or wait for it to expire.")
+                        .sessionId(existingSession.getSessionId())
+                        .build();
+            }
+            
             // Generate session ID and OTP
             String sessionId = generateSessionId();
             String otp = generateOtp();
@@ -61,9 +88,12 @@ public class SessionService {
                     .sessionId(sessionId)
                     .email(request.getEmail())
                     .name(request.getName())
+                    .company(request.getCompany())
                     .otp(otp)
                     .createdAt(System.currentTimeMillis())
                     .verified(false)
+                    .analysisCount(0)
+                    .otpAttempts(0)
                     .build();
             
             // Store in pending sessions
@@ -78,6 +108,7 @@ public class SessionService {
                     .success(true)
                     .message("Session created successfully. Please check your email for the verification code.")
                     .sessionId(sessionId)
+                    .createdAt(System.currentTimeMillis())
                     .build();
                     
         } catch (Exception e) {
@@ -115,9 +146,20 @@ public class SessionService {
             
             // Verify OTP
             if (!sessionData.getOtp().equals(request.getOtp())) {
+                sessionData.setOtpAttempts(sessionData.getOtpAttempts() + 1);
+                
+                // Lock out after 3 failed attempts
+                if (sessionData.getOtpAttempts() >= 3) {
+                    pendingSessions.remove(request.getSessionId());
+                    return SessionResponse.builder()
+                            .success(false)
+                            .message("Too many failed attempts. Please request a new session.")
+                            .build();
+                }
+                
                 return SessionResponse.builder()
                         .success(false)
-                        .message("Invalid verification code")
+                        .message("Invalid verification code. " + (3 - sessionData.getOtpAttempts()) + " attempts remaining.")
                         .build();
             }
             
@@ -129,7 +171,10 @@ public class SessionService {
             
             // Move to active sessions
             activeSessions.put(request.getSessionId(), sessionData);
+            sessionTokenToId.put(sessionToken, request.getSessionId());
             pendingSessions.remove(request.getSessionId());
+            
+            long expiresAt = sessionData.getCreatedAt() + (sessionDurationMinutes * 60 * 1000);
             
             logger.info("Session verified: {} for email: {}", request.getSessionId(), maskEmail(sessionData.getEmail()));
             
@@ -138,7 +183,13 @@ public class SessionService {
                     .message("Session verified successfully")
                     .sessionId(request.getSessionId())
                     .sessionToken(sessionToken)
-                    .expiresAt(System.currentTimeMillis() + (sessionDurationMinutes * 60 * 1000))
+                    .expiresAt(expiresAt)
+                    .remainingMinutes(sessionDurationMinutes)
+                    .userEmail(maskEmail(sessionData.getEmail()))
+                    .metadata(SessionResponse.SessionMetadata.builder()
+                            .demoSession(true)
+                            .maxAnalysisCount(maxAnalysisPerSession)
+                            .build())
                     .build();
                     
         } catch (Exception e) {
@@ -158,23 +209,46 @@ public class SessionService {
             return false;
         }
         
-        // Cleanup expired sessions first
-        cleanupExpiredSessions();
+        String sessionId = sessionTokenToId.get(sessionToken);
+        if (sessionId == null) {
+            return false;
+        }
         
-        return activeSessions.values().stream()
-                .anyMatch(session -> sessionToken.equals(session.getSessionToken()) && 
-                         session.isVerified() && 
-                         !isSessionExpired(session));
+        SessionData sessionData = activeSessions.get(sessionId);
+        if (sessionData == null || !sessionData.isVerified()) {
+            return false;
+        }
+        
+        if (isSessionExpired(sessionData)) {
+            endSession(sessionToken);
+            return false;
+        }
+        
+        return true;
     }
     
     /**
-     * Get session information
+     * Get session information by token
      */
     public SessionData getSessionByToken(String sessionToken) {
-        return activeSessions.values().stream()
-                .filter(session -> sessionToken.equals(session.getSessionToken()))
-                .findFirst()
-                .orElse(null);
+        String sessionId = sessionTokenToId.get(sessionToken);
+        if (sessionId == null) {
+            return null;
+        }
+        
+        return activeSessions.get(sessionId);
+    }
+    
+    /**
+     * Get remaining session time in minutes
+     */
+    public int getRemainingTime(String sessionToken) {
+        SessionData sessionData = getSessionByToken(sessionToken);
+        if (sessionData == null) {
+            return 0;
+        }
+        
+        return calculateRemainingMinutes(sessionData);
     }
     
     /**
@@ -195,6 +269,7 @@ public class SessionService {
     /**
      * Cleanup expired sessions
      */
+    @Scheduled(fixedDelayString = "${demo.session.cleanup.interval:300000}") // 5 minutes
     public void cleanupExpiredSessions() {
         long currentTime = System.currentTimeMillis();
         long sessionDurationMs = sessionDurationMinutes * 60 * 1000;
@@ -205,6 +280,7 @@ public class SessionService {
             SessionData session = entry.getValue();
             boolean expired = (currentTime - session.getCreatedAt()) > sessionDurationMs;
             if (expired) {
+                sessionTokenToId.remove(session.getSessionToken());
                 logger.info("Cleaned up expired session: {} for email: {}", 
                            entry.getKey(), maskEmail(session.getEmail()));
             }
@@ -226,14 +302,19 @@ public class SessionService {
      * Force end a session
      */
     public boolean endSession(String sessionToken) {
-        SessionData session = getSessionByToken(sessionToken);
-        if (session != null) {
-            activeSessions.entrySet().removeIf(entry -> 
-                sessionToken.equals(entry.getValue().getSessionToken()));
-            logger.info("Session ended: {} for email: {}", 
-                       session.getSessionId(), maskEmail(session.getEmail()));
+        String sessionId = sessionTokenToId.get(sessionToken);
+        if (sessionId == null) {
+            return false;
+        }
+        
+        SessionData sessionData = activeSessions.remove(sessionId);
+        sessionTokenToId.remove(sessionToken);
+        
+        if (sessionData != null) {
+            logger.info("Session ended: {} for email: {}", sessionId, maskEmail(sessionData.getEmail()));
             return true;
         }
+        
         return false;
     }
     
@@ -248,7 +329,7 @@ public class SessionService {
     }
     
     private String generateOtp() {
-        Random random = new Random();
+        SecureRandom random = new SecureRandom();
         return String.format("%06d", random.nextInt(1000000));
     }
     
@@ -257,103 +338,60 @@ public class SessionService {
         return sessionAge > (sessionDurationMinutes * 60 * 1000);
     }
     
+    private int calculateRemainingMinutes(SessionData sessionData) {
+        long currentTime = System.currentTimeMillis();
+        long sessionAge = currentTime - sessionData.getCreatedAt();
+        long remainingTime = (sessionDurationMinutes * 60 * 1000) - sessionAge;
+        return Math.max(0, (int) (remainingTime / 60000));
+    }
+    
+    private SessionData findActiveSessionByEmail(String email) {
+        return activeSessions.values().stream()
+                .filter(session -> email.equalsIgnoreCase(session.getEmail()))
+                .findFirst()
+                .orElse(null);
+    }
+    
+    private boolean isValidEmail(String email) {
+        return email != null && 
+               email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+    
     private String maskEmail(String email) {
         if (email == null || email.length() < 3) return "***";
         int atIndex = email.indexOf('@');
         if (atIndex <= 0) return "***";
-        return email.substring(0, 1) + "***" + email.substring(atIndex);
+        
+        String username = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        
+        if (username.length() <= 2) {
+            return username.charAt(0) + "*" + domain;
+        } else {
+            return username.charAt(0) + 
+                   "*".repeat(Math.min(username.length() - 2, 3)) + 
+                   username.charAt(username.length() - 1) + 
+                   domain;
+        }
     }
     
     /**
-     * Session Data inner class
+     * Session Data inner class with Lombok annotations
      */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class SessionData {
         private String sessionId;
         private String email;
         private String name;
+        private String company;
         private String otp;
         private String sessionToken;
         private long createdAt;
         private boolean verified;
-        
-        // Constructors
-        public SessionData() {}
-        
-        public static SessionDataBuilder builder() {
-            return new SessionDataBuilder();
-        }
-        
-        // Getters and Setters
-        public String getSessionId() { return sessionId; }
-        public void setSessionId(String sessionId) { this.sessionId = sessionId; }
-        
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        
-        public String getOtp() { return otp; }
-        public void setOtp(String otp) { this.otp = otp; }
-        
-        public String getSessionToken() { return sessionToken; }
-        public void setSessionToken(String sessionToken) { this.sessionToken = sessionToken; }
-        
-        public long getCreatedAt() { return createdAt; }
-        public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
-        
-        public boolean isVerified() { return verified; }
-        public void setVerified(boolean verified) { this.verified = verified; }
-        
-        // Builder class
-        public static class SessionDataBuilder {
-            private String sessionId;
-            private String email;
-            private String name;
-            private String otp;
-            private long createdAt;
-            private boolean verified;
-            
-            public SessionDataBuilder sessionId(String sessionId) {
-                this.sessionId = sessionId;
-                return this;
-            }
-            
-            public SessionDataBuilder email(String email) {
-                this.email = email;
-                return this;
-            }
-            
-            public SessionDataBuilder name(String name) {
-                this.name = name;
-                return this;
-            }
-            
-            public SessionDataBuilder otp(String otp) {
-                this.otp = otp;
-                return this;
-            }
-            
-            public SessionDataBuilder createdAt(long createdAt) {
-                this.createdAt = createdAt;
-                return this;
-            }
-            
-            public SessionDataBuilder verified(boolean verified) {
-                this.verified = verified;
-                return this;
-            }
-            
-            public SessionData build() {
-                SessionData data = new SessionData();
-                data.sessionId = this.sessionId;
-                data.email = this.email;
-                data.name = this.name;
-                data.otp = this.otp;
-                data.createdAt = this.createdAt;
-                data.verified = this.verified;
-                return data;
-            }
-        }
+        private int analysisCount;
+        private int otpAttempts;
     }
 }

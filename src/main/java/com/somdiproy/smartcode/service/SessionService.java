@@ -57,20 +57,17 @@ public class SessionService {
      */
     public SessionResponse createSession(SessionRequest request) {
         try {
-            // Validate email
-            if (request.getEmail() == null || !isValidEmail(request.getEmail())) {
-                return SessionResponse.builder()
-                        .success(false)
-                        .message("Invalid email address")
-                        .build();
-            }
+            logger.info("=== SESSION CREATION STARTED ===");
+            logger.info("Email: {}", request.getEmail());
+            logger.info("Name: {}", request.getName());
             
-            // Check if user already has an active session
+            // Check for existing session
             SessionData existingSession = findActiveSessionByEmail(request.getEmail());
             if (existingSession != null) {
+                logger.warn("Active session already exists for email: {}", maskEmail(request.getEmail()));
                 return SessionResponse.builder()
                         .success(false)
-                        .message("You already have an active session. Please use the existing session or wait for it to expire.")
+                        .message("An active session already exists. Please use the existing session or wait for it to expire.")
                         .sessionId(existingSession.getSessionId())
                         .build();
             }
@@ -78,6 +75,9 @@ public class SessionService {
             // Generate session ID and OTP
             String sessionId = generateSessionId();
             String otp = generateOtp();
+            
+            logger.info("Generated Session ID: {}", sessionId);
+            logger.info("Generated OTP: {}", otp);
             
             // Create session data
             SessionData sessionData = SessionData.builder()
@@ -94,12 +94,22 @@ public class SessionService {
             
             // Store in pending sessions
             pendingSessions.put(sessionId, sessionData);
+            logger.info("Session stored in pending sessions map");
             
             // Send OTP email
-         // Send OTP email
-            emailService.sendOtpEmail(request.getEmail(), request.getName(), otp);
+            try {
+                logger.info("Calling emailService.sendOtpEmail...");
+                emailService.sendOtpEmail(request.getEmail(), request.getName(), otp);
+                logger.info("Email service call completed");
+            } catch (Exception e) {
+                logger.error("Error sending OTP email", e);
+                // Don't fail session creation if email fails in development
+            }
             
-            logger.info("Session created: {} for email: {}", sessionId, maskEmail(request.getEmail()));
+            logger.info("=== SESSION CREATED SUCCESSFULLY ===");
+            logger.info("Session ID: {}", sessionId);
+            logger.info("OTP Code: {}", otp);
+            logger.info("=== PLEASE USE THIS OTP TO VERIFY: {} ===", otp);
             
             return SessionResponse.builder()
                     .success(true)

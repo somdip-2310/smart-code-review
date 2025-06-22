@@ -276,6 +276,24 @@ public class CodeReviewController {
         }
     }
     
+    @PostMapping("/session/test")
+    public ResponseEntity<Map<String, Object>> testSession() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Test endpoint working");
+        response.put("timestamp", System.currentTimeMillis());
+        
+        // Generate test OTP
+        String testOtp = String.format("%06d", (int)(Math.random() * 1000000));
+        response.put("otp", testOtp);
+        
+        logger.info("=== TEST SESSION ENDPOINT ===");
+        logger.info("Generated test OTP: {}", testOtp);
+        logger.info("===========================");
+        
+        return ResponseEntity.ok(response);
+    }
+    
     /**
      * Get session status
      */

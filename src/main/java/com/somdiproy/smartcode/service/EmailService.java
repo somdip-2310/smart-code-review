@@ -38,6 +38,12 @@ public class EmailService {
      * Send OTP email for session verification
      */
     public void sendOtpEmail(String toEmail, String userName, String otp) {
+    	
+    	logger.info("=== SENDING OTP EMAIL ===");
+        logger.info("Recipient: {}", toEmail);
+        logger.info("User Name: {}", userName);
+        logger.info("OTP Code: {}", otp);
+        logger.info("SendGrid Configured: {}", (sendGridApiKey != null && !sendGridApiKey.trim().isEmpty()));
         try {
             // Check if SendGrid is configured (production)
             if (sendGridApiKey != null && !sendGridApiKey.trim().isEmpty()) {

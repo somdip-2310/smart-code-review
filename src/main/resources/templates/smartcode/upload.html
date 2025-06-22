@@ -274,15 +274,81 @@
         
         document.addEventListener('DOMContentLoaded', function() {
             app = new SmartCodeReviewApp();
+			console.log('DOM loaded, app initialized');
+			    console.log('Current URL:', window.location.href);
+			    console.log('Session form exists:', !!document.getElementById('session-form'));
+			    console.log('OTP form exists:', !!document.getElementById('otp-form'));
+            // Override the showOtpVerification method BEFORE any form submissions
+            app.showOtpVerification = function(email, sessionId) {
+                console.log('Custom showOtpVerification called:', email, sessionId);
+                document.getElementById('session-card').classList.add('hidden');
+                document.getElementById('otp-card').classList.remove('hidden');
+                document.getElementById('email-display').textContent = email;
+                
+                // Set sessionId in hidden field
+                const otpForm = document.getElementById('otp-form');
+                let sessionInput = otpForm.querySelector('input[name="sessionId"]');
+                if (!sessionInput) {
+                    sessionInput = document.createElement('input');
+                    sessionInput.type = 'hidden';
+                    sessionInput.name = 'sessionId';
+                    otpForm.appendChild(sessionInput);
+                }
+                sessionInput.value = sessionId;
+                
+                // Focus on first OTP input
+                const firstOtpInput = document.querySelector('.otp-input');
+                if (firstOtpInput) {
+                    firstOtpInput.focus();
+                }
+            };
             
-            // Handle session form submission
-            const sessionForm = document.getElementById('session-form');
-            if (sessionForm) {
-                sessionForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    await app.handleEmailSubmission(this);
-                });
-            }
+            // Override session verification success
+            app.onSessionVerified = function() {
+                console.log('Session verified - showing upload form');
+                document.getElementById('otp-card').classList.add('hidden');
+                document.getElementById('upload-form-card').classList.remove('hidden');
+                startTimer();
+            };
+            
+          
+			// Handle session form submission
+			const sessionForm = document.getElementById('session-form');
+			if (sessionForm) {
+			    console.log('Session form found, setting up handler');
+			    
+			    // Method 1: Form submit event
+			    sessionForm.addEventListener('submit', async function(e) {
+			        console.log('Form submit event triggered');
+			        e.preventDefault();
+			        e.stopPropagation();
+			        await app.handleEmailSubmission(this);
+			        return false;
+			    });
+			    
+			    // Method 2: Button click event as backup
+			    const submitBtn = sessionForm.querySelector('button[type="submit"]');
+			    if (submitBtn) {
+			        submitBtn.addEventListener('click', async function(e) {
+			            console.log('Submit button clicked');
+			            e.preventDefault();
+			            if (sessionForm.checkValidity()) {
+			                await app.handleEmailSubmission(sessionForm);
+			            } else {
+			                sessionForm.reportValidity();
+			            }
+			            return false;
+			        });
+			    }
+			    
+			    // Method 3: Override form action
+			    sessionForm.action = 'javascript:void(0)';
+			    sessionForm.method = 'POST';
+			    
+			    console.log('Session form handlers attached');
+			} else {
+			    console.error('Session form not found!');
+			}
             
             // Handle OTP form submission
             const otpForm = document.getElementById('otp-form');
@@ -320,37 +386,6 @@
             });
         });
         
-        // Override app method to show OTP card
-        SmartCodeReviewApp.prototype.showOtpVerification = function(email, sessionId) {
-            document.getElementById('session-card').classList.add('hidden');
-            document.getElementById('otp-card').classList.remove('hidden');
-            document.getElementById('email-display').textContent = email;
-            
-            // Set sessionId in hidden field
-            const otpForm = document.getElementById('otp-form');
-            let sessionInput = otpForm.querySelector('input[name="sessionId"]');
-            if (!sessionInput) {
-                sessionInput = document.createElement('input');
-                sessionInput.type = 'hidden';
-                sessionInput.name = 'sessionId';
-                otpForm.appendChild(sessionInput);
-            }
-            sessionInput.value = sessionId;
-            
-            // Focus on first OTP input
-            const firstOtpInput = document.querySelector('.otp-input');
-            if (firstOtpInput) {
-                firstOtpInput.focus();
-            }
-        };
-        
-        // Override session verification success
-        SmartCodeReviewApp.prototype.onSessionVerified = function() {
-            document.getElementById('otp-card').classList.add('hidden');
-            document.getElementById('upload-form-card').classList.remove('hidden');
-            startTimer();
-        };
-        
         // Timer functionality
         function startTimer() {
             let timeRemaining = 420; // 7 minutes in seconds
@@ -377,8 +412,8 @@
         }
         
 		function goToGitHubConnect() {
-		    if (app && app.sessionData && app.sessionData.sessionToken) {
-		        window.location.href = `/github-connect?sessionToken=${app.sessionData.sessionToken}`;
+		    if (app && app.sessionData && (app.sessionData.sessionToken || app.sessionData.token)) {
+		        window.location.href = `/github-connect?sessionToken=${app.sessionData.sessionToken || app.sessionData.token}`;
 		    } else {
 		        alert('Please verify your session first');
 		    }
@@ -424,7 +459,7 @@
             
             const formData = new FormData();
             formData.append('file', selectedFile);
-            formData.append('sessionToken', app.sessionData.sessionToken);
+            formData.append('sessionToken', app.sessionData.sessionToken || app.sessionData.token);
             
             try {
                 document.getElementById('start-analysis-btn').disabled = true;
@@ -454,14 +489,62 @@
             }
         }
         
+		// Manual test function for debugging
+		        window.testSessionCreation = async function() {
+		            console.log('Testing session creation manually');
+		            const email = prompt('Enter email:');
+		            const name = prompt('Enter name (optional):');
+		            
+		            if (email) {
+		                const response = await fetch('/api/v1/code-review/session/create', {
+		                    method: 'POST',
+		                    headers: {
+		                        'Content-Type': 'application/json'
+		                    },
+		                    body: JSON.stringify({ email, name })
+		                });
+		                
+		                const data = await response.json();
+		                console.log('Test response:', data);
+		                
+		                if (data.success && window.app) {
+		                    window.app.showOtpVerification(email, data.sessionId);
+		                }
+		            }
+		        };
+		
         // Resend OTP function
         window.resendOTP = function() {
-            if (app && app.sessionData) {
-                app.resendOtp(app.sessionData.sessionId);
+            if (app && app.currentSessionId) {
+                app.resendOtp(app.currentSessionId);
             } else {
                 alert('Please start a new session');
             }
         };
-    </script>
+		// Fallback: Ensure form handlers are attached after everything loads
+		        window.addEventListener('load', function() {
+		            console.log('Window fully loaded - checking form handlers');
+		            
+		            const sessionForm = document.getElementById('session-form');
+		            if (sessionForm && !sessionForm.hasAttribute('data-handler-attached')) {
+		                console.log('Attaching fallback handler to session form');
+		                
+		                sessionForm.setAttribute('data-handler-attached', 'true');
+		                sessionForm.onsubmit = async function(e) {
+		                    console.log('Fallback form handler triggered');
+		                    e.preventDefault();
+		                    if (window.app) {
+		                        await window.app.handleEmailSubmission(this);
+		                    }
+		                    return false;
+		                };
+		            }
+		        });
+		        
+		        // Global error handler for debugging
+		        window.addEventListener('error', function(e) {
+		            console.error('JavaScript error:', e.error);
+		        });
+		    </script>
 </body>
 </html>

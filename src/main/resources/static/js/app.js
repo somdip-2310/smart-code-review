@@ -169,107 +169,104 @@ class SmartCodeReviewApp {
     /**
      * Handle email form submission for session creation
      */
-	async handleEmailSubmission(form) {
-	    const formData = new FormData(form);
-	    const email = formData.get('email');
-	    const name = formData.get('name');
-	    
-	    if (!this.validateEmail(email)) {
-	        this.showToast('Please enter a valid email address', 'error');
-	        return;
-	    }
-	    
-	    this.showLoading('Sending verification code...');
-	    
-	    try {
-	        const response = await fetch(`${this.API_BASE}/api/v1/code-review/session/create`, {
-	            method: 'POST',
-	            headers: {
-	                'Content-Type': 'application/json',
-	                'Accept': 'application/json'
-	            },
-	            body: JSON.stringify({ email, name })
-	        });
-	        
-	        // Check if the response is ok (status in the range 200-299)
-	        if (!response.ok) {
-	            // Try to get error message from response
-	            let errorMessage = `Server error: ${response.status}`;
-	            try {
-	                const errorData = await response.json();
-	                errorMessage = errorData.message || errorMessage;
-	            } catch (e) {
-	                // If response is not JSON, use status text
-	                errorMessage = response.statusText || errorMessage;
-	            }
-	            throw new Error(errorMessage);
-	        }
-	        
-	        const data = await response.json();
-	        
-	        if (data.success) {
-	            // Store session data
-	            this.sessionData = { 
-	                sessionId: data.sessionId, 
-	                email: email,
-	                name: name 
-	            };
-	            this.currentSessionId = data.sessionId;
-	            
-	            // Show OTP verification card - UPDATE THIS PART
-	            if (typeof this.showOtpVerification === 'function') {
-	                // Use the custom method if available (from upload.html)
-	                this.showOtpVerification(email, data.sessionId);
-	            } else if (typeof window.showOtpCard === 'function') {
-	                // Use the global function if available
-	                window.showOtpCard(email, data.sessionId);
-	            } else {
-	                // Fallback to the default OTP form method
-	                this.showOtpForm(data.sessionId, email);
-	            }
-	            
-	            // Track analytics event
-	            this.trackEvent('otp_sent', {
-	                event_category: 'engagement',
-	                event_label: 'session_creation'
-	            });
-	            
-	            // Show success message
-	            this.showToast('Verification code sent! Check your email.', 'success');
-	            
-	            // Log for debugging (remove in production)
-	            console.log('Session created successfully:', data.sessionId);
-	        } else {
-	            throw new Error(data.message || 'Failed to create session');
-	        }
-	    } catch (error) {
-	        console.error('Error creating session:', error);
-	        
-	        // Provide user-friendly error messages
-	        let userMessage = 'Failed to send verification code. Please try again.';
-	        
-	        if (error.message.includes('404')) {
-	            userMessage = 'Service not available. Please check your connection.';
-	        } else if (error.message.includes('500')) {
-	            userMessage = 'Server error. Please try again later.';
-	        } else if (error.message.includes('network')) {
-	            userMessage = 'Network error. Please check your internet connection.';
-	        } else if (error.message) {
-	            userMessage = error.message;
-	        }
-	        
-	        this.showToast(userMessage, 'error');
-	        
-	        // Track error event
-	        this.trackEvent('session_error', {
-	            event_category: 'error',
-	            event_label: 'session_creation',
-	            error_message: error.message
-	        });
-	    } finally {
-	        this.hideLoading();
-	    }
-	}
+    async handleEmailSubmission(form) {
+        const formData = new FormData(form);
+        const email = formData.get('email');
+        const name = formData.get('name');
+        
+        if (!this.validateEmail(email)) {
+            this.showToast('Please enter a valid email address', 'error');
+            return;
+        }
+        
+        this.showLoading('Sending verification code...');
+        
+        try {
+            const response = await fetch(`${this.API_BASE}/api/v1/code-review/session/create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email, name })
+            });
+            
+            // Check if the response is ok (status in the range 200-299)
+            if (!response.ok) {
+                // Try to get error message from response
+                let errorMessage = `Server error: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                    // If response is not JSON, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Store session data
+                this.sessionData = { 
+                    sessionId: data.sessionId, 
+                    email: email,
+                    name: name 
+                };
+                this.currentSessionId = data.sessionId;
+                
+                // Show OTP verification card
+                // Call the overridden method if available, otherwise use default
+                if (typeof this.showOtpVerification === 'function') {
+                    this.showOtpVerification(email, data.sessionId);
+                } else {
+                    // Fallback to showing OTP in modal
+                    this.showOtpForm(data.sessionId, email);
+                }
+                
+                // Track analytics event
+                this.trackEvent('otp_sent', {
+                    event_category: 'engagement',
+                    event_label: 'session_creation'
+                });
+                
+                // Show success message
+                this.showToast('Verification code sent! Check your email.', 'success');
+                
+                // Log for debugging (remove in production)
+                console.log('Session created successfully:', data.sessionId);
+            } else {
+                throw new Error(data.message || 'Failed to create session');
+            }
+        } catch (error) {
+            console.error('Error creating session:', error);
+            
+            // Provide user-friendly error messages
+            let userMessage = 'Failed to send verification code. Please try again.';
+            
+            if (error.message.includes('404')) {
+                userMessage = 'Service not available. Please check your connection.';
+            } else if (error.message.includes('500')) {
+                userMessage = 'Server error. Please try again later.';
+            } else if (error.message.includes('network')) {
+                userMessage = 'Network error. Please check your internet connection.';
+            } else if (error.message) {
+                userMessage = error.message;
+            }
+            
+            this.showToast(userMessage, 'error');
+            
+            // Track error event
+            this.trackEvent('session_error', {
+                event_category: 'error',
+                event_label: 'session_creation',
+                error_message: error.message
+            });
+        } finally {
+            this.hideLoading();
+        }
+    }
     
     /**
      * Handle OTP form submission for session verification
@@ -277,7 +274,7 @@ class SmartCodeReviewApp {
     async handleOtpSubmission(form) {
         const formData = new FormData(form);
         const otp = formData.get('otp');
-        const sessionId = formData.get('sessionId');
+        const sessionId = formData.get('sessionId') || this.currentSessionId;
         
         if (!otp || otp.length !== 6) {
             this.showToast('Please enter a valid 6-digit code', 'error');
@@ -298,11 +295,22 @@ class SmartCodeReviewApp {
             const data = await response.json();
             
             if (data.success) {
-                this.sessionData = data;
-                this.saveSession(data);
+                // Store complete session data including token
+                this.sessionData = {
+                    ...this.sessionData,
+                    ...data,
+                    sessionToken: data.token || data.sessionToken,
+                    expiresAt: data.expiresAt || Date.now() + (7 * 60 * 1000) // 7 minutes from now
+                };
+                this.saveSession(this.sessionData);
                 this.updateSessionUI();
                 this.startSessionTimer();
                 this.closeAllModals();
+                
+                // Call the onSessionVerified method if it exists (for page-specific handling)
+                if (typeof this.onSessionVerified === 'function') {
+                    this.onSessionVerified();
+                }
                 
                 this.trackEvent('session_verified', {
                     event_category: 'engagement',
@@ -363,7 +371,7 @@ class SmartCodeReviewApp {
                 body: JSON.stringify({
                     code,
                     language,
-                    sessionToken: this.sessionData.sessionToken
+                    sessionToken: this.sessionData.sessionToken || this.sessionData.token
                 })
             });
             
@@ -418,7 +426,7 @@ class SmartCodeReviewApp {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('sessionToken', this.sessionData.sessionToken);
+            formData.append('sessionToken', this.sessionData.sessionToken || this.sessionData.token);
             
             const response = await fetch(`${this.API_BASE}/api/v1/code-review/analyze/zip`, {
                 method: 'POST',
@@ -456,7 +464,7 @@ class SmartCodeReviewApp {
         const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch(
-                    `${this.API_BASE}/api/v1/code-review/analysis/${analysisId}?sessionToken=${this.sessionData.sessionToken}`
+                    `${this.API_BASE}/api/v1/code-review/analysis/${analysisId}?sessionToken=${this.sessionData.sessionToken || this.sessionData.token}`
                 );
                 
                 const data = await response.json();
@@ -949,49 +957,126 @@ class SmartCodeReviewApp {
         });
     }
     
+    /**
+     * Show OTP verification form
+     */
     showOtpForm(sessionId, email) {
-        const formContainer = document.getElementById('session-form-container');
-        if (!formContainer) return;
+        console.log('Showing OTP form for:', email, 'Session:', sessionId);
         
-        formContainer.innerHTML = `
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                    </svg>
-                </div>
-                <h3 class="text-lg font-semibold mb-2">Check Your Email</h3>
-                <p class="text-gray-600">We sent a 6-digit verification code to <strong>${email}</strong></p>
-            </div>
+        // Hide session card if exists
+        const sessionCard = document.getElementById('session-card');
+        if (sessionCard) {
+            sessionCard.classList.add('hidden');
+        }
+        
+        // Show OTP card
+        const otpCard = document.getElementById('otp-card');
+        if (otpCard) {
+            otpCard.classList.remove('hidden');
             
-            <form id="otp-form" class="space-y-4">
-                <input type="hidden" name="sessionId" value="${sessionId}">
-                <div>
-                    <label for="otp" class="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
-                    <input type="text" id="otp" name="otp" required 
-                           maxlength="6" pattern="[0-9]{6}" 
-                           class="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="000000"
-                           autocomplete="one-time-code">
-                </div>
-                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                    Verify Code
-                </button>
-                <div class="text-center">
-                    <button type="button" onclick="app.resendOtp('${sessionId}')" class="text-blue-600 hover:text-blue-700 text-sm">
-                        Didn't receive the code? Resend
-                    </button>
-                </div>
-            </form>
-        `;
-        
-        // Focus on OTP input
-        setTimeout(() => {
-            const otpInput = document.getElementById('otp');
-            if (otpInput) {
-                otpInput.focus();
+            // Update email display
+            const emailDisplay = document.getElementById('email-display');
+            if (emailDisplay) {
+                emailDisplay.textContent = email;
             }
-        }, 100);
+            
+            // Store sessionId
+            const otpForm = document.getElementById('otp-form');
+            if (otpForm) {
+                let sessionInput = otpForm.querySelector('input[name="sessionId"]');
+                if (!sessionInput) {
+                    sessionInput = document.createElement('input');
+                    sessionInput.type = 'hidden';
+                    sessionInput.name = 'sessionId';
+                    otpForm.appendChild(sessionInput);
+                }
+                sessionInput.value = sessionId;
+            }
+            
+            // Focus on first OTP input
+            setTimeout(() => {
+                const firstOtpInput = document.querySelector('.otp-input');
+                if (firstOtpInput) {
+                    firstOtpInput.focus();
+                }
+            }, 100);
+        } else {
+            // Fallback to modal approach if OTP card doesn't exist
+            this.showModal(`
+                <div class="text-center space-y-6">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Check Your Email</h3>
+                    <p class="text-gray-600">We sent a 6-digit verification code to <strong>${email}</strong></p>
+                </div>
+                
+                <form id="modal-otp-form" class="space-y-4">
+                    <input type="hidden" name="sessionId" value="${sessionId}">
+                    <div>
+                        <label for="modal-otp" class="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
+                        <input type="text" id="modal-otp" name="otp" required 
+                               maxlength="6" pattern="[0-9]{6}" 
+                               class="w-full px-4 py-3 text-center text-2xl tracking-widest border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="000000"
+                               autocomplete="one-time-code">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Verify Code
+                    </button>
+                    <div class="text-center">
+                        <button type="button" onclick="app.resendOtp('${sessionId}')" class="text-blue-600 hover:text-blue-700 text-sm">
+                            Didn't receive the code? Resend
+                        </button>
+                    </div>
+                </form>
+            `);
+            
+            // Add event handler for the modal form
+            const modalForm = document.getElementById('modal-otp-form');
+            if (modalForm) {
+                modalForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await this.handleOtpSubmission(modalForm);
+                });
+            }
+            
+            // Focus on OTP input
+            setTimeout(() => {
+                const otpInput = document.getElementById('modal-otp');
+                if (otpInput) {
+                    otpInput.focus();
+                }
+            }, 100);
+        }
+    }
+    
+    /**
+     * Show modal (implementation needed if showModal is called)
+     */
+    showModal(content) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('app-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'app-modal';
+            modal.className = 'modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="modal-content bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                    <div id="modal-body"></div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        const modalBody = document.getElementById('modal-body');
+        if (modalBody) {
+            modalBody.innerHTML = content;
+        }
+        
+        modal.classList.remove('hidden');
     }
     
     async resendOtp(sessionId) {
@@ -1014,7 +1099,7 @@ class SmartCodeReviewApp {
     }
     
     closeAllModals() {
-        const modals = document.querySelectorAll('.session-modal, .modal');
+        const modals = document.querySelectorAll('.session-modal, .modal, .modal-overlay');
         modals.forEach(modal => {
             modal.classList.add('hidden');
         });

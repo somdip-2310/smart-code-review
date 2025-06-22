@@ -64,17 +64,20 @@
                                 </p>
                                 
                                 <!-- Email Form -->
-                                <form id="email-form" class="max-w-sm mx-auto">
-                                    <div class="flex flex-col sm:flex-row gap-3">
+                                <form id="session-form" class="max-w-sm mx-auto">
+                                    <div class="space-y-4">
+                                        <input type="text" 
+                                               name="name" 
+                                               placeholder="Your Name (optional)" 
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
                                         <input type="email" 
-                                               id="email-input"
                                                name="email" 
                                                placeholder="your@email.com" 
                                                required
-                                               class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
                                         <button type="submit" 
-                                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
-                                            Start Demo
+                                                class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl">
+                                            Send Verification Code
                                         </button>
                                     </div>
                                 </form>
@@ -111,6 +114,7 @@
                                 
                                 <!-- OTP Form -->
                                 <form id="otp-form" class="max-w-xs mx-auto">
+                                    <input type="hidden" id="otp" name="otp">
                                     <div class="flex gap-2 justify-center mb-4">
                                         <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
                                         <input type="text" maxlength="1" class="otp-input w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
@@ -214,17 +218,17 @@
                                                 <p class="text-sm text-gray-500">Analyze directly from your repository</p>
                                             </div>
                                         </div>
-                                        <span class="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Coming Soon</span>
+										<a href="#" onclick="goToGitHubConnect()" class="px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full hover:bg-blue-700 transition-colors">
+										    Connect
+										</a>
                                     </div>
-                                    <input type="text" 
-                                           placeholder="https://github.com/username/repository" 
-                                           disabled
-                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed">
                                 </div>
                                 
                                 <!-- Submit Button -->
                                 <button type="button" 
                                         onclick="startAnalysis()"
+                                        id="start-analysis-btn"
+                                        disabled
                                         class="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-[1.02] transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
                                     <span class="flex items-center justify-center">
                                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,31 +257,211 @@
                     </div>
                 </div>
             </section>
-        </th:block>
+    </main>
+    
+    <!-- Footer -->
+    <footer th:replace="~{layout/footer :: footer}"></footer>
+
+    <!-- Include the app.js -->
+    <script src="/js/app.js" th:src="@{/js/app.js}"></script>
+
+    <!-- Page-specific JavaScript -->
+    <script>
+        // Initialize the app
+        let app;
+        let sessionTimer;
+        let selectedFile = null;
         
-        <!-- Scripts -->
-        <th:block th:fragment="scripts">
-            <script>
-                // Track page view
-                if (typeof gtag !== 'undefined') {
-                    gtag('event', 'page_view', {
-                        page_title: 'Upload Code - Smart Code Review',
-                        page_location: window.location.href
-                    });
-                }
+        document.addEventListener('DOMContentLoaded', function() {
+            app = new SmartCodeReviewApp();
+            
+            // Handle session form submission
+            const sessionForm = document.getElementById('session-form');
+            if (sessionForm) {
+                sessionForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    await app.handleEmailSubmission(this);
+                });
+            }
+            
+            // Handle OTP form submission
+            const otpForm = document.getElementById('otp-form');
+            if (otpForm) {
+                otpForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    await app.handleOtpSubmission(this);
+                });
+            }
+            
+            // Handle file upload
+            const fileInput = document.getElementById('file-input');
+            if (fileInput) {
+                fileInput.addEventListener('change', handleFileSelect);
+            }
+            
+            // Handle OTP input auto-advance
+            const otpInputs = document.querySelectorAll('.otp-input');
+            otpInputs.forEach((input, index) => {
+                input.addEventListener('input', function() {
+                    if (this.value.length === 1 && index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                    
+                    // Combine all inputs
+                    const otpValue = Array.from(otpInputs).map(i => i.value).join('');
+                    document.getElementById('otp').value = otpValue;
+                });
                 
-                // Initialize upload functionality
-                document.addEventListener('DOMContentLoaded', function() {
-                    // Check for existing session
-                    const app = window.smartCodeReviewApp;
-                    if (app && app.sessionData && app.sessionData.isActive) {
-                        // Show upload form directly
-                        document.getElementById('session-card').classList.add('hidden');
-                        document.getElementById('otp-card').classList.add('hidden');
-                        document.getElementById('upload-form-card').classList.remove('hidden');
-                        app.startTimer();
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Backspace' && this.value === '' && index > 0) {
+                        otpInputs[index - 1].focus();
                     }
                 });
+            });
+        });
+        
+        // Override app method to show OTP card
+        SmartCodeReviewApp.prototype.showOtpVerification = function(email, sessionId) {
+            document.getElementById('session-card').classList.add('hidden');
+            document.getElementById('otp-card').classList.remove('hidden');
+            document.getElementById('email-display').textContent = email;
+            
+            // Set sessionId in hidden field
+            const otpForm = document.getElementById('otp-form');
+            let sessionInput = otpForm.querySelector('input[name="sessionId"]');
+            if (!sessionInput) {
+                sessionInput = document.createElement('input');
+                sessionInput.type = 'hidden';
+                sessionInput.name = 'sessionId';
+                otpForm.appendChild(sessionInput);
+            }
+            sessionInput.value = sessionId;
+            
+            // Focus on first OTP input
+            const firstOtpInput = document.querySelector('.otp-input');
+            if (firstOtpInput) {
+                firstOtpInput.focus();
+            }
+        };
+        
+        // Override session verification success
+        SmartCodeReviewApp.prototype.onSessionVerified = function() {
+            document.getElementById('otp-card').classList.add('hidden');
+            document.getElementById('upload-form-card').classList.remove('hidden');
+            startTimer();
+        };
+        
+        // Timer functionality
+        function startTimer() {
+            let timeRemaining = 420; // 7 minutes in seconds
+            
+            function updateTimer() {
+                const minutes = Math.floor(timeRemaining / 60);
+                const seconds = timeRemaining % 60;
+                document.getElementById('timer').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(sessionTimer);
+                    alert('Session expired. Please refresh the page to start a new session.');
+                    location.reload();
+                } else if (timeRemaining <= 60) {
+                    document.getElementById('timer').classList.add('text-red-600');
+                }
+                
+                timeRemaining--;
+            }
+            
+            updateTimer();
+            sessionTimer = setInterval(updateTimer, 1000);
+        }
+        
+		function goToGitHubConnect() {
+		    if (app && app.sessionData && app.sessionData.sessionToken) {
+		        window.location.href = `/github-connect?sessionToken=${app.sessionData.sessionToken}`;
+		    } else {
+		        alert('Please verify your session first');
+		    }
+		}
+		
+        // File handling
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 50 * 1024 * 1024) { // 50MB
+                    alert('File size must be less than 50MB');
+                    e.target.value = '';
+                    return;
+                }
+                
+                selectedFile = file;
+                document.getElementById('file-name').textContent = file.name;
+                document.getElementById('file-size').textContent = formatFileSize(file.size);
+                document.getElementById('file-preview').classList.remove('hidden');
+                document.getElementById('start-analysis-btn').disabled = false;
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            else if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
+            else return Math.round(bytes / 1048576) + ' MB';
+        }
+        
+        function removeFile() {
+            selectedFile = null;
+            document.getElementById('file-input').value = '';
+            document.getElementById('file-preview').classList.add('hidden');
+            document.getElementById('start-analysis-btn').disabled = true;
+        }
+        
+        // Start analysis
+        async function startAnalysis() {
+            if (!selectedFile || !app.sessionData) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('sessionToken', app.sessionData.sessionToken);
+            
+            try {
+                document.getElementById('start-analysis-btn').disabled = true;
+                document.getElementById('start-analysis-btn').innerHTML = 
+                    '<span class="flex items-center justify-center"><svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Analyzing...</span>';
+                
+                const response = await fetch('/api/v1/code-review/analyze/zip', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    // Redirect to results page
+                    window.location.href = `/results/${result.analysisId}`;
+                } else {
+                    const error = await response.json();
+                    alert(error.message || 'Failed to analyze file');
+                }
+            } catch (error) {
+                console.error('Analysis error:', error);
+                alert('Failed to start analysis. Please try again.');
+            } finally {
+                document.getElementById('start-analysis-btn').disabled = false;
+                document.getElementById('start-analysis-btn').innerHTML = 
+                    '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>Start Analysis</span>';
+            }
+        }
+        
+        // Resend OTP function
+        window.resendOTP = function() {
+            if (app && app.sessionData) {
+                app.resendOtp(app.sessionData.sessionId);
+            } else {
+                alert('Please start a new session');
+            }
+        };
     </script>
 </body>
 </html>

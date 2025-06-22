@@ -208,11 +208,25 @@ class SmartCodeReviewApp {
 	        const data = await response.json();
 	        
 	        if (data.success) {
-	            // Store session ID for later use
+	            // Store session data
+	            this.sessionData = { 
+	                sessionId: data.sessionId, 
+	                email: email,
+	                name: name 
+	            };
 	            this.currentSessionId = data.sessionId;
 	            
-	            // Show OTP form
-	            this.showOtpForm(data.sessionId, email);
+	            // Show OTP verification card - UPDATE THIS PART
+	            if (typeof this.showOtpVerification === 'function') {
+	                // Use the custom method if available (from upload.html)
+	                this.showOtpVerification(email, data.sessionId);
+	            } else if (typeof window.showOtpCard === 'function') {
+	                // Use the global function if available
+	                window.showOtpCard(email, data.sessionId);
+	            } else {
+	                // Fallback to the default OTP form method
+	                this.showOtpForm(data.sessionId, email);
+	            }
 	            
 	            // Track analytics event
 	            this.trackEvent('otp_sent', {
@@ -221,7 +235,7 @@ class SmartCodeReviewApp {
 	            });
 	            
 	            // Show success message
-	            this.showToast('Verification code sent to your email', 'success');
+	            this.showToast('Verification code sent! Check your email.', 'success');
 	            
 	            // Log for debugging (remove in production)
 	            console.log('Session created successfully:', data.sessionId);

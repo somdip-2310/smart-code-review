@@ -96,7 +96,8 @@ public class SessionService {
             pendingSessions.put(sessionId, sessionData);
             
             // Send OTP email
-            emailService.sendOtpEmail(request.getEmail(), otp, sessionId);
+         // Send OTP email
+            emailService.sendOtpEmail(request.getEmail(), request.getName(), otp);
             
             logger.info("Session created: {} for email: {}", sessionId, maskEmail(request.getEmail()));
             

@@ -64,20 +64,48 @@ public class SmartCodeViewController {
         return "smartcode/upload";
     }
     
+    
     /**
      * Analyze page - Github Connect
      */
     @GetMapping("/github-connect")
-    public String githubConnect(Model model) {
+    public String githubConnect(Model model, HttpServletRequest request) {
         model.addAttribute("title", "Connect GitHub - Smart Code Review | Somdip Roy");
         model.addAttribute("description", "Set up automated code analysis with GitHub webhooks for continuous integration.");
         model.addAttribute("currentPage", "github");
         model.addAttribute("googleAnalyticsId", googleAnalyticsId);
         
-        // Generate session-specific webhook URL if user has active session
-        // Add logic to retrieve session token
+        // Check for session token in request parameter or session
+        String sessionToken = request.getParameter("sessionToken");
+        if (sessionToken == null || sessionToken.isEmpty()) {
+            // Try to get from session attribute
+            sessionToken = (String) request.getSession().getAttribute("sessionToken");
+        }
+        
+        // Generate webhook URL with actual session token
+        if (sessionToken != null && !sessionToken.isEmpty()) {
+            String webhookUrl = String.format("https://smartcode.somdip.dev/api/v1/github/webhook/%s", sessionToken);
+            model.addAttribute("webhookUrl", webhookUrl);
+            model.addAttribute("sessionToken", sessionToken);
+        } else {
+            model.addAttribute("webhookUrl", "https://smartcode.somdip.dev/api/v1/github/webhook/{session-token}");
+            model.addAttribute("sessionToken", null);
+        }
         
         return "smartcode/github-connect";
+    }
+    
+    /**
+     * Analyze page - Code paste interface
+     */
+    @GetMapping("/analyze")
+    public String analyze(Model model) {
+        model.addAttribute("title", "Paste Code for Analysis - Smart Code Review | Somdip Roy");
+        model.addAttribute("description", "Paste your code directly for instant AI-powered analysis. Get security insights, performance recommendations, and quality metrics in minutes.");
+        model.addAttribute("currentPage", "analyze");
+        model.addAttribute("googleAnalyticsId", googleAnalyticsId);
+        
+        return "smartcode/analyze";
     }
     
     /**

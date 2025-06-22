@@ -29,24 +29,25 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 // Public endpoints - Including all view endpoints
-                .requestMatchers(
-                    "/",
-                    "/upload",
-                    "/analyze",
-                    "/error",
-                    "/css/**",
-                    "/js/**",
-                    "/images/**",
-                    "/static/**",
-                    "/favicon.ico",
-                    "/actuator/health",
-                    "/actuator/info",
-                    "/api/v1/code-review/health",
-                    "/api/v1/code-review/session/**",
-                    "/api/v1/code-review/analyze/**",
-                    "/api/v1/code-review/analysis/**",
-                    "/api/v1/code-review/webhook/**"
-                ).permitAll()
+            		.requestMatchers(
+            			    "/",
+            			    "/upload",
+            			    "/analyze",
+            			    "/github-connect",  // Add this line
+            			    "/error",
+            			    "/css/**",
+            			    "/js/**",
+            			    "/images/**",
+            			    "/static/**",
+            			    "/favicon.ico",
+            			    "/actuator/health",
+            			    "/actuator/info",
+            			    "/api/v1/code-review/health",
+            			    "/api/v1/code-review/session/**",
+            			    "/api/v1/code-review/analyze/**",
+            			    "/api/v1/code-review/analysis/**",
+            			    "/api/v1/code-review/webhook/**"
+            			).permitAll()
                 // All other requests require authentication
                 .anyRequest().authenticated()
             )

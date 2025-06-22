@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,9 @@ public class SessionService {
     
     @Value("${demo.session.max.analysis:5}")
     private int maxAnalysisPerSession;
+    
+    @Value("${sendgrid.api.key:}")
+    private String sendGridApiKey;
     
     @Autowired
     private EmailService emailService;
@@ -196,17 +200,17 @@ public class SessionService {
             logger.info("=== PLEASE USE THIS OTP TO VERIFY: {} ===", otp);
             
             return SessionResponse.builder()
-                    .success(true)
-                    .message("Session created successfully. Please check your email for the verification code.")
-                    .sessionId(sessionId)
-                    .createdAt(System.currentTimeMillis())
-                    .expiresIn(sessionDurationMinutes * 60) // seconds until expiration
-                    .metadata(SessionResponse.SessionMetadata.builder()
-                            .demoSession(true)
-                            .maxAnalysisCount(maxAnalysisPerSession)
-                            .sessionDurationMinutes(sessionDurationMinutes)
-                            .build())
-                    .build();
+            	    .success(true)
+            	    .message("Session created successfully. Please check your email for the verification code.")
+            	    .sessionId(sessionId)
+            	    .createdAt(System.currentTimeMillis())
+            	    .expiresAt(System.currentTimeMillis() + (sessionDurationMinutes * 60 * 1000)) // milliseconds timestamp
+            	    .remainingMinutes(sessionDurationMinutes)
+            	    .metadata(SessionResponse.SessionMetadata.builder()
+            	        .demoSession(true)
+            	        .maxAnalysisCount(maxAnalysisPerSession)
+            	        .build())
+            	    .build();
                     
         } catch (Exception e) {
             logger.error("Error creating session", e);
@@ -539,25 +543,12 @@ public class SessionService {
         private boolean verified;
         private int analysisCount;
         private int otpAttempts;
+        private int maxAnalysisCount;
+        private String clientIp;
+        private String userAgent;
         
         // Default constructor
         public SessionData() {
-        }
-        
-        // Constructor with all fields
-        public SessionData(String sessionId, String email, String name, String company, 
-                          String otp, String sessionToken, long createdAt, boolean verified,
-                          int analysisCount, int otpAttempts) {
-            this.sessionId = sessionId;
-            this.email = email;
-            this.name = name;
-            this.company = company;
-            this.otp = otp;
-            this.sessionToken = sessionToken;
-            this.createdAt = createdAt;
-            this.verified = verified;
-            this.analysisCount = analysisCount;
-            this.otpAttempts = otpAttempts;
         }
         
         // Builder pattern
@@ -565,154 +556,117 @@ public class SessionService {
             return new SessionDataBuilder();
         }
         
-        // Getters and Setters
-        public String getSessionId() {
-            return sessionId;
-        }
+        // Getters and setters
+        public String getSessionId() { return sessionId; }
+        public void setSessionId(String sessionId) { this.sessionId = sessionId; }
         
-        public void setSessionId(String sessionId) {
-            this.sessionId = sessionId;
-        }
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
         
-        public String getEmail() {
-            return email;
-        }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
         
-        public void setEmail(String email) {
-            this.email = email;
-        }
+        public String getCompany() { return company; }
+        public void setCompany(String company) { this.company = company; }
         
-        public String getName() {
-            return name;
-        }
+        public String getOtp() { return otp; }
+        public void setOtp(String otp) { this.otp = otp; }
         
-        public void setName(String name) {
-            this.name = name;
-        }
+        public String getSessionToken() { return sessionToken; }
+        public void setSessionToken(String sessionToken) { this.sessionToken = sessionToken; }
         
-        public String getCompany() {
-            return company;
-        }
+        public long getCreatedAt() { return createdAt; }
+        public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
         
-        public void setCompany(String company) {
-            this.company = company;
-        }
+        public boolean isVerified() { return verified; }
+        public void setVerified(boolean verified) { this.verified = verified; }
         
-        public String getOtp() {
-            return otp;
-        }
+        public int getAnalysisCount() { return analysisCount; }
+        public void setAnalysisCount(int analysisCount) { this.analysisCount = analysisCount; }
         
-        public void setOtp(String otp) {
-            this.otp = otp;
-        }
+        public int getOtpAttempts() { return otpAttempts; }
+        public void setOtpAttempts(int otpAttempts) { this.otpAttempts = otpAttempts; }
         
-        public String getSessionToken() {
-            return sessionToken;
-        }
+        public int getMaxAnalysisCount() { return maxAnalysisCount; }
+        public void setMaxAnalysisCount(int maxAnalysisCount) { this.maxAnalysisCount = maxAnalysisCount; }
         
-        public void setSessionToken(String sessionToken) {
-            this.sessionToken = sessionToken;
-        }
+        public String getClientIp() { return clientIp; }
+        public void setClientIp(String clientIp) { this.clientIp = clientIp; }
         
-        public long getCreatedAt() {
-            return createdAt;
-        }
+        public String getUserAgent() { return userAgent; }
+        public void setUserAgent(String userAgent) { this.userAgent = userAgent; }
         
-        public void setCreatedAt(long createdAt) {
-            this.createdAt = createdAt;
-        }
-        
-        public boolean isVerified() {
-            return verified;
-        }
-        
-        public void setVerified(boolean verified) {
-            this.verified = verified;
-        }
-        
-        public int getAnalysisCount() {
-            return analysisCount;
-        }
-        
-        public void setAnalysisCount(int analysisCount) {
-            this.analysisCount = analysisCount;
-        }
-        
-        public int getOtpAttempts() {
-            return otpAttempts;
-        }
-        
-        public void setOtpAttempts(int otpAttempts) {
-            this.otpAttempts = otpAttempts;
-        }
-        
-        // Builder class for SessionData
+        // Builder class
         public static class SessionDataBuilder {
-            private String sessionId;
-            private String email;
-            private String name;
-            private String company;
-            private String otp;
-            private String sessionToken;
-            private long createdAt;
-            private boolean verified;
-            private int analysisCount;
-            private int otpAttempts;
+            private SessionData sessionData = new SessionData();
             
             public SessionDataBuilder sessionId(String sessionId) {
-                this.sessionId = sessionId;
+                sessionData.sessionId = sessionId;
                 return this;
             }
             
             public SessionDataBuilder email(String email) {
-                this.email = email;
+                sessionData.email = email;
                 return this;
             }
             
             public SessionDataBuilder name(String name) {
-                this.name = name;
+                sessionData.name = name;
                 return this;
             }
             
             public SessionDataBuilder company(String company) {
-                this.company = company;
+                sessionData.company = company;
                 return this;
             }
             
             public SessionDataBuilder otp(String otp) {
-                this.otp = otp;
+                sessionData.otp = otp;
                 return this;
             }
             
             public SessionDataBuilder sessionToken(String sessionToken) {
-                this.sessionToken = sessionToken;
+                sessionData.sessionToken = sessionToken;
                 return this;
             }
             
             public SessionDataBuilder createdAt(long createdAt) {
-                this.createdAt = createdAt;
+                sessionData.createdAt = createdAt;
                 return this;
             }
             
             public SessionDataBuilder verified(boolean verified) {
-                this.verified = verified;
+                sessionData.verified = verified;
                 return this;
             }
             
             public SessionDataBuilder analysisCount(int analysisCount) {
-                this.analysisCount = analysisCount;
+                sessionData.analysisCount = analysisCount;
                 return this;
             }
             
             public SessionDataBuilder otpAttempts(int otpAttempts) {
-                this.otpAttempts = otpAttempts;
+                sessionData.otpAttempts = otpAttempts;
+                return this;
+            }
+            
+            public SessionDataBuilder maxAnalysisCount(int maxAnalysisCount) {
+                sessionData.maxAnalysisCount = maxAnalysisCount;
+                return this;
+            }
+            
+            public SessionDataBuilder clientIp(String clientIp) {
+                sessionData.clientIp = clientIp;
+                return this;
+            }
+            
+            public SessionDataBuilder userAgent(String userAgent) {
+                sessionData.userAgent = userAgent;
                 return this;
             }
             
             public SessionData build() {
-                return new SessionData(sessionId, email, name, company, otp, 
-                                     sessionToken, createdAt, verified, 
-                                     analysisCount, otpAttempts);
+                return sessionData;
             }
         }
     }

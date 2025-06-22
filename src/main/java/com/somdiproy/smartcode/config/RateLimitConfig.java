@@ -11,6 +11,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import com.somdiproy.smartcode.interceptor.RateLimitInterceptor;
+import com.somdiproy.smartcode.task.RateLimiterCleanupTask;
+
 
 /**
  * Rate Limiting Configuration for Smart Code Review

@@ -240,30 +240,42 @@ class SmartCodeReviewApp {
                 throw new Error(data.message || 'Failed to create session');
             }
         } catch (error) {
-            console.error('Error creating session:', error);
-            
-            // Provide user-friendly error messages
-            let userMessage = 'Failed to send verification code. Please try again.';
-            
-            if (error.message.includes('404')) {
-                userMessage = 'Service not available. Please check your connection.';
-            } else if (error.message.includes('500')) {
-                userMessage = 'Server error. Please try again later.';
-            } else if (error.message.includes('network')) {
-                userMessage = 'Network error. Please check your internet connection.';
-            } else if (error.message) {
-                userMessage = error.message;
-            }
-            
-            this.showToast(userMessage, 'error');
-            
-            // Track error event
-            this.trackEvent('session_error', {
-                event_category: 'error',
-                event_label: 'session_creation',
-                error_message: error.message
-            });
-        } finally {
+			    console.error('Error creating session:', error);
+			    
+			    // Hide loading spinner
+			    this.hideLoading();
+			    
+			    // Show user-friendly error messages
+			    let userMessage = 'Failed to send verification code. Please try again.';
+			    
+			    if (error.message.includes('active session already exists')) {
+			        userMessage = 'You already have an active session. Please wait for it to expire or use the existing session.';
+			        
+			        // Show session conflict modal
+			        this.showSessionConflictModal();
+			        return;
+			    } else if (error.message.includes('404')) {
+			        userMessage = 'Service not available. Please check your connection.';
+			    } else if (error.message.includes('500')) {
+			        userMessage = 'Server error. Please try again later.';
+			    } else if (error.message.includes('network')) {
+			        userMessage = 'Network error. Please check your internet connection.';
+			    } else if (error.message.includes('Name must be')) {
+			        userMessage = 'Please provide a valid name (at least 2 characters).';
+			    } else if (error.message) {
+			        userMessage = error.message;
+			    }
+			    
+			    // Display the error to the user
+			    this.showToast(userMessage, 'error', 5000);
+			    
+			    // Track error event
+			    this.trackEvent('session_error', {
+			        event_category: 'error',
+			        event_label: 'session_creation',
+			        error_message: error.message
+			    });
+			} finally {
             this.hideLoading();
         }
     }
@@ -783,37 +795,75 @@ class SmartCodeReviewApp {
         this.updateSessionUI();
     }
     
-    updateSessionUI() {
-        const timerElement = document.getElementById('session-timer');
-        const timerDisplay = document.getElementById('timer-display');
-        
-        if (this.sessionData && timerElement) {
-            timerElement.classList.remove('hidden');
-            this.updateTimerDisplay();
-        } else if (timerElement) {
-            timerElement.classList.add('hidden');
-        }
-        
-        // Show/hide session-dependent elements
-        const sessionElements = document.querySelectorAll('[data-requires-session]');
-        sessionElements.forEach(element => {
-            if (this.sessionData) {
-                element.classList.remove('hidden');
-            } else {
-                element.classList.add('hidden');
-            }
-        });
-        
-        // Update create session buttons
-        const createSessionBtns = document.querySelectorAll('[data-action="create-session"]');
-        createSessionBtns.forEach(btn => {
-            if (this.sessionData) {
-                btn.style.display = 'none';
-            } else {
-                btn.style.display = '';
-            }
-        });
-    }
+	updateSessionUI() {
+	    // Update header session indicator
+	    const sessionIndicator = document.getElementById('session-status-indicator');
+	    const timerElement = document.getElementById('session-timer');
+	    const timerDisplay = document.getElementById('timer-display');
+	    const floatingStatus = document.getElementById('floating-session-status');
+	    const sessionBanner = document.getElementById('session-required-banner');
+	    
+	    if (this.sessionData && timerElement) {
+	        timerElement.classList.remove('hidden');
+	        this.updateTimerDisplay();
+	    } else if (timerElement) {
+	        timerElement.classList.add('hidden');
+	    }
+	    
+	    // New session status indicator logic
+	    if (this.sessionData && this.sessionData.verified) {
+	        // Show session indicators
+	        if (sessionIndicator) {
+	            sessionIndicator.classList.remove('hidden');
+	            const emailDisplay = document.getElementById('session-email-display');
+	            if (emailDisplay) {
+	                emailDisplay.textContent = this.maskEmail(this.sessionData.email);
+	            }
+	        }
+	        
+	        // Show floating status on specific pages
+	        if (floatingStatus && window.location.pathname.includes('/upload')) {
+	            floatingStatus.classList.remove('hidden');
+	            document.getElementById('floating-session-email').textContent = this.maskEmail(this.sessionData.email);
+	            document.getElementById('floating-session-analyses').textContent = 
+	                `${this.sessionData.analysisCount || 0} / ${this.sessionData.maxAnalysisCount || 5}`;
+	        }
+	        
+	        // Hide session required banner
+	        if (sessionBanner) {
+	            sessionBanner.classList.add('hidden');
+	        }
+	    } else {
+	        // Hide session indicators
+	        if (sessionIndicator) sessionIndicator.classList.add('hidden');
+	        if (floatingStatus) floatingStatus.classList.add('hidden');
+	        
+	        // Show session required banner on analyze page
+	        if (sessionBanner && window.location.pathname.includes('/analyze')) {
+	            sessionBanner.classList.remove('hidden');
+	        }
+	    }
+	    
+	    // Show/hide session-dependent elements
+	    const sessionElements = document.querySelectorAll('[data-requires-session]');
+	    sessionElements.forEach(element => {
+	        if (this.sessionData) {
+	            element.classList.remove('hidden');
+	        } else {
+	            element.classList.add('hidden');
+	        }
+	    });
+	    
+	    // Update create session buttons
+	    const createSessionBtns = document.querySelectorAll('[data-action="create-session"]');
+	    createSessionBtns.forEach(btn => {
+	        if (this.sessionData) {
+	            btn.style.display = 'none';
+	        } else {
+	            btn.style.display = '';
+	        }
+	    });
+	}
     
     startSessionTimer() {
         if (this.timerInterval) {
@@ -1183,24 +1233,235 @@ class SmartCodeReviewApp {
         });
     }
     
+	/**
+	 * Show session details modal
+	 */
+	showSessionDetails() {
+	    if (!this.sessionData) return;
+	    
+	    const modalContent = `
+	        <div class="text-center">
+	            <div class="mb-4">
+	                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+	                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+	                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+	                    </svg>
+	                </div>
+	            </div>
+	            <h3 class="text-lg font-semibold text-gray-900 mb-4">Session Details</h3>
+	            <div class="space-y-3 text-left">
+	                <div class="flex justify-between py-2 border-b">
+	                    <span class="text-gray-600">Email:</span>
+	                    <span class="font-medium">${this.sessionData.email}</span>
+	                </div>
+	                <div class="flex justify-between py-2 border-b">
+	                    <span class="text-gray-600">Session ID:</span>
+	                    <span class="font-mono text-sm">${this.sessionData.sessionId}</span>
+	                </div>
+	                <div class="flex justify-between py-2 border-b">
+	                    <span class="text-gray-600">Time Remaining:</span>
+	                    <span class="font-medium text-blue-600" id="modal-timer">--:--</span>
+	                </div>
+	                <div class="flex justify-between py-2 border-b">
+	                    <span class="text-gray-600">Analyses Used:</span>
+	                    <span class="font-medium">${this.sessionData.analysisCount || 0} / ${this.sessionData.maxAnalysisCount || 5}</span>
+	                </div>
+	                <div class="flex justify-between py-2">
+	                    <span class="text-gray-600">Started:</span>
+	                    <span class="font-medium">${new Date(this.sessionData.createdAt).toLocaleTimeString()}</span>
+	                </div>
+	            </div>
+	            <div class="mt-6 flex gap-3">
+	                <button onclick="window.app.closeAllModals()" 
+	                        class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+	                    Close
+	                </button>
+	                <button onclick="window.app.endSession()" 
+	                        class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+	                    End Session
+	                </button>
+	            </div>
+	        </div>
+	    `;
+	    
+	    this.showModal(modalContent);
+	    
+	    // Update modal timer
+	    this.updateModalTimer();
+	}
+
+	/**
+	 * Update timer in modal
+	 */
+	updateModalTimer() {
+	    const modalTimer = document.getElementById('modal-timer');
+	    if (modalTimer && this.sessionData) {
+	        const now = Date.now();
+	        const expiresAt = this.sessionData.expiresAt;
+	        const remainingMs = expiresAt - now;
+	        
+	        if (remainingMs > 0) {
+	            const remainingMinutes = Math.floor(remainingMs / 60000);
+	            const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
+	            modalTimer.textContent = `${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+	            
+	            // Update every second while modal is open
+	            setTimeout(() => {
+	                if (document.getElementById('modal-timer')) {
+	                    this.updateModalTimer();
+	                }
+	            }, 1000);
+	        } else {
+	            modalTimer.textContent = 'Expired';
+	        }
+	    }
+	}
+
+	/**
+	 * Hide floating session status
+	 */
+	hideSessionStatus() {
+	    const floatingStatus = document.getElementById('floating-session-status');
+	    if (floatingStatus) {
+	        floatingStatus.classList.add('hidden');
+	    }
+	}
+
+	/**
+	 * Mask email for privacy
+	 */
+	maskEmail(email) {
+	    if (!email) return '';
+	    const [username, domain] = email.split('@');
+	    if (username.length <= 3) return email;
+	    return username.substring(0, 2) + '***' + username.substring(username.length - 1) + '@' + domain;
+	}
+
+	/**
+	 * End current session
+	 */
+	async endSession() {
+	    if (!confirm('Are you sure you want to end your current session?')) return;
+	    
+	    try {
+	        // Call backend to end session
+	        if (this.sessionData && this.sessionData.sessionToken) {
+	            await fetch(`${this.API_BASE}/api/v1/code-review/session/end`, {
+	                method: 'POST',
+	                headers: {
+	                    'Content-Type': 'application/json',
+	                },
+	                body: JSON.stringify({
+	                    sessionToken: this.sessionData.sessionToken
+	                })
+	            });
+	        }
+	    } catch (error) {
+	        console.error('Error ending session:', error);
+	    }
+	    
+	    // Clear local session
+	    this.clearSession();
+	    window.location.href = '/';
+	}
+	
+	/**
+	 * Show session conflict modal
+	 */
+	showSessionConflictModal() {
+	    const modalContent = `
+	        <div class="text-center">
+	            <div class="mb-4">
+	                <svg class="w-12 h-12 text-yellow-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+	                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+	                </svg>
+	            </div>
+	            <h3 class="text-lg font-semibold text-gray-900 mb-2">Active Session Detected</h3>
+	            <p class="text-gray-600 mb-4">You already have an active session. You can only use one session at a time.</p>
+	            <div class="flex flex-col space-y-2">
+	                <button onclick="window.app.clearSessionAndRetry()" 
+	                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+	                    End Current Session & Start New
+	                </button>
+	                <button onclick="window.app.continueWithExistingSession()" 
+	                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+	                    Continue with Existing Session
+	                </button>
+	                <button onclick="window.app.closeAllModals()" 
+	                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+	                    Cancel
+	                </button>
+	            </div>
+	        </div>
+	    `;
+	    
+	    this.showModal(modalContent);
+	}
+
+	/**
+	 * Clear existing session and retry
+	 */
+	async clearSessionAndRetry() {
+	    // Clear local storage
+	    localStorage.removeItem('smartcode_session');
+	    this.sessionData = null;
+	    
+	    // Clear any timers
+	    if (this.timerInterval) {
+	        clearInterval(this.timerInterval);
+	        this.timerInterval = null;
+	    }
+	    
+	    this.closeAllModals();
+	    this.showToast('Previous session cleared. Please try again.', 'info');
+	}
+
+	/**
+	 * Continue with existing session
+	 */
+	continueWithExistingSession() {
+	    const existingSession = localStorage.getItem('smartcode_session');
+	    if (existingSession) {
+	        this.sessionData = JSON.parse(existingSession);
+	        this.updateSessionUI();
+	        this.startSessionTimer();
+	        this.closeAllModals();
+	        
+	        // Redirect to appropriate page
+	        if (window.location.pathname === '/upload') {
+	            // Show the upload form
+	            document.getElementById('session-card').classList.add('hidden');
+	            document.getElementById('upload-form-card').classList.remove('hidden');
+	        }
+	    }
+	}
+	
     /**
      * Service status checking
      */
-    async checkServiceStatus() {
-        try {
-            const response = await fetch(`${this.API_BASE}/api/v1/code-review/health`);
-            const data = await response.json();
-            
-            if (data.status === 'UP') {
-                this.updateServiceStatus(true);
-            } else {
-                this.updateServiceStatus(false);
-            }
-        } catch (error) {
-            console.error('Error checking service status:', error);
-            this.updateServiceStatus(false);
-        }
-    }
+	async checkServiceStatus() {
+	    try {
+	        const response = await fetch(`${this.API_BASE}/api/v1/code-review/health`);
+	        const data = await response.json();
+	        
+	        if (data.status === 'UP') {
+	            this.updateServiceStatus(true);
+	            
+	            // Check capacity
+	            if (data.sessionCapacity) {
+	                const capacityPercent = (data.currentSessions / data.maxSessions) * 100;
+	                if (capacityPercent > 80) {
+	                    this.showToast('Service is experiencing high demand. Sessions may be limited.', 'warning');
+	                }
+	            }
+	        } else {
+	            this.updateServiceStatus(false);
+	        }
+	    } catch (error) {
+	        console.error('Error checking service status:', error);
+	        this.updateServiceStatus(false);
+	    }
+	}
     
     updateServiceStatus(isOnline) {
         const statusElements = document.querySelectorAll('.service-status');
@@ -1340,7 +1601,8 @@ let app;
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     app = new SmartCodeReviewApp();
-    
+	// Expose session management functions
+	window.app = app;
     // Expose global functions for HTML onclick handlers
     window.startDemo = () => {
         const modal = document.getElementById('session-modal');

@@ -46,7 +46,10 @@ public class SecurityConfig {
             			    "/api/v1/code-review/session/**",
             			    "/api/v1/code-review/analyze/**",
             			    "/api/v1/code-review/analysis/**",
-            			    "/api/v1/code-review/webhook/**"
+            			    "/api/v1/code-review/webhook/**",
+            			    "/api/v1/github/**",
+            			    "/api/v1/github/webhook/**",
+            			    "/api/v1/github/webhook/test/**"
             			).permitAll()
                 // All other requests require authentication
                 .anyRequest().authenticated()

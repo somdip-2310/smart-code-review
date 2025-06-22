@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,24 +54,80 @@ public class SessionService {
     private final Map<String, SessionData> pendingSessions = new ConcurrentHashMap<>();
     private final Map<String, String> sessionTokenToId = new ConcurrentHashMap<>();
     
-    /**
-     * Create a new demo session
-     */
+    @Value("${demo.session.max.concurrent:100}")
+    private int maxConcurrentSessions;
+
+    @Value("${demo.session.max.per.ip:3}")
+    private int maxSessionsPerIp;
+
+    private final Map<String, List<String>> ipToSessions = new ConcurrentHashMap<>();
+    
     public SessionResponse createSession(SessionRequest request) {
         try {
             logger.info("=== SESSION CREATION STARTED ===");
             logger.info("Email: {}", request.getEmail());
             logger.info("Name: {}", request.getName());
             
-            // Check for existing session
+            // Check global session limit
+            int totalActiveSessions = activeSessions.size() + pendingSessions.size();
+            if (totalActiveSessions >= maxConcurrentSessions) {
+                logger.warn("Maximum concurrent sessions reached: {}", totalActiveSessions);
+                return SessionResponse.builder()
+                        .success(false)
+                        .message("System is at capacity. Please try again in a few minutes.")
+                        .build();
+            }
+            
+            // Check IP-based limits
+            String clientIp = request.getClientIp();
+            if (clientIp != null && !clientIp.isEmpty()) {
+                List<String> ipSessions = ipToSessions.computeIfAbsent(clientIp, k -> new ArrayList<>());
+                
+                // Clean up expired sessions for this IP
+                ipSessions.removeIf(sessionId -> {
+                    SessionData session = activeSessions.get(sessionId);
+                    SessionData pendingSession = pendingSessions.get(sessionId);
+                    return (session == null || isSessionExpired(session)) && 
+                           (pendingSession == null || isSessionExpired(pendingSession));
+                });
+                
+                if (ipSessions.size() >= maxSessionsPerIp) {
+                    logger.warn("Too many sessions from IP: {}", clientIp);
+                    return SessionResponse.builder()
+                            .success(false)
+                            .message("Too many active sessions from your location. Please wait for existing sessions to expire.")
+                            .build();
+                }
+            }
+            
+            // Check for existing session by email
             SessionData existingSession = findActiveSessionByEmail(request.getEmail());
             if (existingSession != null) {
                 logger.warn("Active session already exists for email: {}", maskEmail(request.getEmail()));
-                return SessionResponse.builder()
-                        .success(false)
-                        .message("An active session already exists. Please use the existing session or wait for it to expire.")
-                        .sessionId(existingSession.getSessionId())
-                        .build();
+                
+                // Check if the existing session is about to expire (less than 1 minute remaining)
+                long sessionAge = System.currentTimeMillis() - existingSession.getCreatedAt();
+                long remainingTime = (sessionDurationMinutes * 60 * 1000) - sessionAge;
+                
+                if (remainingTime < 60000) { // Less than 1 minute
+                    logger.info("Existing session about to expire, allowing new session creation");
+                    // Remove the expiring session
+                    if (existingSession.getSessionToken() != null) {
+                        activeSessions.remove(existingSession.getSessionId());
+                        sessionTokenToId.remove(existingSession.getSessionToken());
+                    } else {
+                        pendingSessions.remove(existingSession.getSessionId());
+                    }
+                } else {
+                    // Calculate remaining minutes for user message
+                    int remainingMinutes = (int) (remainingTime / 60000);
+                    return SessionResponse.builder()
+                            .success(false)
+                            .message(String.format("An active session already exists. Please wait %d minutes for it to expire or use the existing session.", remainingMinutes))
+                            .sessionId(existingSession.getSessionId())
+                            .remainingMinutes(remainingMinutes)
+                            .build();
+                }
             }
             
             // Generate session ID and OTP
@@ -90,11 +148,19 @@ public class SessionService {
                     .verified(false)
                     .analysisCount(0)
                     .otpAttempts(0)
+                    .maxAnalysisCount(maxAnalysisPerSession)
+                    .clientIp(clientIp)
+                    .userAgent(request.getUserAgent())
                     .build();
             
             // Store in pending sessions
             pendingSessions.put(sessionId, sessionData);
             logger.info("Session stored in pending sessions map");
+            
+            // Track IP to session mapping
+            if (clientIp != null && !clientIp.isEmpty()) {
+                ipToSessions.computeIfAbsent(clientIp, k -> new ArrayList<>()).add(sessionId);
+            }
             
             // Send OTP email
             try {
@@ -104,7 +170,25 @@ public class SessionService {
             } catch (Exception e) {
                 logger.error("Error sending OTP email", e);
                 // Don't fail session creation if email fails in development
+                if (sendGridApiKey != null && !sendGridApiKey.isEmpty()) {
+                    // In production, fail if email cannot be sent
+                    pendingSessions.remove(sessionId);
+                    if (clientIp != null) {
+                        List<String> sessions = ipToSessions.get(clientIp);
+                        if (sessions != null) {
+                            sessions.remove(sessionId);
+                        }
+                    }
+                    return SessionResponse.builder()
+                            .success(false)
+                            .message("Failed to send verification email. Please try again.")
+                            .build();
+                }
             }
+            
+            // Log session metrics
+            int currentTotal = activeSessions.size() + pendingSessions.size();
+            logger.info("Current session count: {}/{}", currentTotal, maxConcurrentSessions);
             
             logger.info("=== SESSION CREATED SUCCESSFULLY ===");
             logger.info("Session ID: {}", sessionId);
@@ -116,6 +200,12 @@ public class SessionService {
                     .message("Session created successfully. Please check your email for the verification code.")
                     .sessionId(sessionId)
                     .createdAt(System.currentTimeMillis())
+                    .expiresIn(sessionDurationMinutes * 60) // seconds until expiration
+                    .metadata(SessionResponse.SessionMetadata.builder()
+                            .demoSession(true)
+                            .maxAnalysisCount(maxAnalysisPerSession)
+                            .sessionDurationMinutes(sessionDurationMinutes)
+                            .build())
                     .build();
                     
         } catch (Exception e) {
@@ -278,33 +368,63 @@ public class SessionService {
     /**
      * Cleanup expired sessions
      */
-    @Scheduled(fixedDelayString = "${demo.session.cleanup.interval:300000}") // 5 minutes
+    @Scheduled(fixedDelayString = "${demo.session.cleanup.interval:300000}")
     public void cleanupExpiredSessions() {
-        long currentTime = System.currentTimeMillis();
-        long sessionDurationMs = sessionDurationMinutes * 60 * 1000;
-        long otpExpirationMs = 600000; // 10 minutes
+        logger.debug("Starting session cleanup...");
         
-        // Clean expired active sessions
-        activeSessions.entrySet().removeIf(entry -> {
-            SessionData session = entry.getValue();
-            boolean expired = (currentTime - session.getCreatedAt()) > sessionDurationMs;
-            if (expired) {
-                sessionTokenToId.remove(session.getSessionToken());
-                logger.info("Cleaned up expired session: {} for email: {}", 
-                           entry.getKey(), maskEmail(session.getEmail()));
+        int cleanedActive = 0;
+        int cleanedPending = 0;
+        
+        // Clean active sessions
+        Iterator<Map.Entry<String, SessionData>> activeIterator = activeSessions.entrySet().iterator();
+        while (activeIterator.hasNext()) {
+            Map.Entry<String, SessionData> entry = activeIterator.next();
+            if (isSessionExpired(entry.getValue())) {
+                activeIterator.remove();
+                sessionTokenToId.remove(entry.getValue().getSessionToken());
+                cleanedActive++;
             }
-            return expired;
+        }
+        
+        // Clean pending sessions
+        Iterator<Map.Entry<String, SessionData>> pendingIterator = pendingSessions.entrySet().iterator();
+        while (pendingIterator.hasNext()) {
+            Map.Entry<String, SessionData> entry = pendingIterator.next();
+            if (isSessionExpired(entry.getValue())) {
+                pendingIterator.remove();
+                cleanedPending++;
+            }
+        }
+        
+        // Clean IP mappings
+        ipToSessions.entrySet().removeIf(entry -> {
+            entry.getValue().removeIf(sessionId -> 
+                !activeSessions.containsKey(sessionId) && !pendingSessions.containsKey(sessionId)
+            );
+            return entry.getValue().isEmpty();
         });
         
-        // Clean expired pending sessions
-        pendingSessions.entrySet().removeIf(entry -> {
-            SessionData session = entry.getValue();
-            boolean expired = (currentTime - session.getCreatedAt()) > otpExpirationMs;
-            if (expired) {
-                logger.debug("Cleaned up expired pending session: {}", entry.getKey());
-            }
-            return expired;
-        });
+        if (cleanedActive > 0 || cleanedPending > 0) {
+            logger.info("Session cleanup completed - Active: {}, Pending: {}, Total remaining: {}", 
+                    cleanedActive, cleanedPending, activeSessions.size() + pendingSessions.size());
+        }
+        
+        // Log metrics
+        logSessionMetrics();
+    }
+
+    private void logSessionMetrics() {
+        int totalSessions = activeSessions.size() + pendingSessions.size();
+        int uniqueIps = ipToSessions.size();
+        
+        logger.info("Session metrics - Total: {}/{}, Unique IPs: {}", 
+                totalSessions, maxConcurrentSessions, uniqueIps);
+        
+        // Alert if reaching capacity
+        if (totalSessions > maxConcurrentSessions * 0.8) {
+            logger.warn("Session capacity warning: {}% full", 
+                    (totalSessions * 100) / maxConcurrentSessions);
+        }
     }
     
     /**
@@ -355,10 +475,31 @@ public class SessionService {
     }
     
     private SessionData findActiveSessionByEmail(String email) {
-        return activeSessions.values().stream()
+        // Check both active and pending sessions
+        SessionData activeSession = activeSessions.values().stream()
                 .filter(session -> email.equalsIgnoreCase(session.getEmail()))
+                .filter(session -> !isSessionExpired(session))
                 .findFirst()
                 .orElse(null);
+        
+        if (activeSession != null) {
+            logger.debug("Found active session for email: {}", maskEmail(email));
+            return activeSession;
+        }
+        
+        // Also check pending sessions
+        SessionData pendingSession = pendingSessions.values().stream()
+                .filter(session -> email.equalsIgnoreCase(session.getEmail()))
+                .filter(session -> !isSessionExpired(session))
+                .findFirst()
+                .orElse(null);
+        
+        if (pendingSession != null) {
+            logger.debug("Found pending session for email: {}", maskEmail(email));
+            return pendingSession;
+        }
+        
+        return null;
     }
     
     private boolean isValidEmail(String email) {

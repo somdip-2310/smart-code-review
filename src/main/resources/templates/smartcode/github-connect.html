@@ -270,67 +270,113 @@
             }
         }
         
-        function testWebhook() {
-            if (!sessionToken || sessionToken === '{session-token}') {
-                alert('Please start a session first');
-                return;
-            }
-            
-            // Show loading state
-            const button = event.target;
-            const originalContent = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Testing...';
-            
-            // Test webhook connection
-            fetch(`/api/v1/github/webhook/test/${sessionToken}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    test: true,
-                    timestamp: new Date().toISOString()
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    // Show success message
-                    button.classList.remove('bg-green-600');
-                    button.classList.add('bg-green-500');
-                    button.innerHTML = '<svg class="h-5 w-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Success!';
-                    
-                    setTimeout(() => {
-                        button.innerHTML = originalContent;
-                        button.disabled = false;
-                        button.classList.remove('bg-green-500');
-                        button.classList.add('bg-green-600');
-                    }, 3000);
-                } else {
-                    throw new Error(data.message || 'Test failed');
-                }
-            })
-            .catch(error => {
-                console.error('Webhook test error:', error);
-                alert('Webhook test failed: ' + error.message);
-                button.innerHTML = originalContent;
-                button.disabled = false;
-            });
-            
-            // Track event
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'webhook_test', {
-                    event_category: 'engagement',
-                    event_label: 'github_setup'
-                });
-            }
-        }
+		function testWebhook() {
+		    // Get session token from page or localStorage
+		    if (!sessionToken || sessionToken === '{session-token}') {
+		        // Try to get from localStorage
+		        const storedSession = localStorage.getItem('smartcode_session');
+		        if (storedSession) {
+		            const sessionData = JSON.parse(storedSession);
+		            sessionToken = sessionData.sessionToken || sessionData.token;
+		            console.log('Retrieved session token from localStorage:', sessionToken);
+		        }
+		        
+		        if (!sessionToken) {
+		            alert('No valid session found. Please start a session first.');
+		            window.location.href = '/upload';
+		            return;
+		        }
+		    }
+		    
+		    console.log('Testing webhook with session token:', sessionToken);
+		    
+		    // Show loading state
+		    const button = event.target || document.querySelector('button[onclick="testWebhook()"]');
+		    const originalContent = button.innerHTML;
+		    button.disabled = true;
+		    button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Testing...';
+		    
+		    // Test webhook connection
+		    fetch(`/api/v1/github/webhook/test/${sessionToken}`, {
+		        method: 'POST',
+		        headers: {
+		            'Content-Type': 'application/json',
+		            'Accept': 'application/json'
+		        },
+		        body: JSON.stringify({
+		            test: true,
+		            timestamp: new Date().toISOString()
+		        })
+		    })
+		    .then(response => {
+		        console.log('Response status:', response.status);
+		        console.log('Response headers:', response.headers);
+		        
+		        if (!response.ok) {
+		            // Try to get error details
+		            return response.text().then(text => {
+		                console.error('Error response body:', text);
+		                throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
+		            });
+		        }
+		        return response.json();
+		    })
+		    .then(data => {
+		        console.log('Webhook test response:', data);
+		        
+		        if (data.status === 'success') {
+		            // Show success message
+		            button.classList.remove('bg-green-600');
+		            button.classList.add('bg-green-500');
+		            button.innerHTML = '<svg class="h-5 w-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Success!';
+		            
+		            // Show webhook URL if available
+		            if (data.webhookUrl) {
+		                console.log('Webhook URL:', data.webhookUrl);
+		                const webhookUrlInput = document.getElementById('webhook-url');
+		                if (webhookUrlInput && webhookUrlInput.value !== data.webhookUrl) {
+		                    webhookUrlInput.value = data.webhookUrl;
+		                }
+		            }
+		            
+		            setTimeout(() => {
+		                button.innerHTML = originalContent;
+		                button.disabled = false;
+		                button.classList.remove('bg-green-500');
+		                button.classList.add('bg-green-600');
+		            }, 3000);
+		        } else {
+		            throw new Error(data.message || 'Test failed');
+		        }
+		    })
+		    .catch(error => {
+		        console.error('Webhook test error:', error);
+		        
+		        // Show more detailed error message
+		        let errorMessage = 'Webhook test failed: ';
+		        if (error.message.includes('403')) {
+		            errorMessage += 'Access denied. Please verify your session is valid.';
+		        } else if (error.message.includes('401')) {
+		            errorMessage += 'Session expired or invalid. Please start a new session.';
+		        } else if (error.message.includes('404')) {
+		            errorMessage += 'Webhook endpoint not found. Please check the configuration.';
+		        } else {
+		            errorMessage += error.message;
+		        }
+		        
+		        alert(errorMessage);
+		        button.innerHTML = originalContent;
+		        button.disabled = false;
+		    });
+		    
+		    // Track event
+		    if (typeof gtag !== 'undefined') {
+		        gtag('event', 'webhook_test', {
+		            event_category: 'engagement',
+		            event_label: 'github_setup'
+		        });
+		    }
+		}
     </script>
 </body>
 </html>

@@ -827,3 +827,47 @@ p {
         border: 1px solid #000;
     }
 }
+
+/* Session Status Styles */
+#session-status-indicator {
+    animation: slideIn 0.3s ease-out;
+}
+
+#floating-session-status {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #session-status-indicator {
+        display: none !important;
+    }
+    
+    #floating-session-status {
+        right: 1rem;
+        left: 1rem;
+        max-width: none;
+    }
+}

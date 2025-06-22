@@ -62,7 +62,25 @@
                         <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         <span class="text-xs text-gray-600">Service Online</span>
                     </div>
-                    
+					<!-- Session Status Indicator -->
+					<div id="session-status-indicator" class="hidden">
+					    <div class="flex items-center space-x-2 bg-white rounded-lg shadow-md px-3 py-2 border border-gray-200">
+					        <div class="flex items-center space-x-2">
+					            <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+					            <span class="text-sm font-medium text-gray-700">Active Session</span>
+					        </div>
+					        <div class="text-xs text-gray-500">
+					            <span id="session-email-display" class="font-medium"></span>
+					        </div>
+					        <button onclick="window.app.showSessionDetails()" 
+					                class="ml-2 text-blue-600 hover:text-blue-700 transition-colors"
+					                title="Session Details">
+					            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					            </svg>
+					        </button>
+					    </div>
+					</div>
                     <!-- Mobile Menu Button -->
                     <button id="mobile-menu-btn" 
                             class="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"

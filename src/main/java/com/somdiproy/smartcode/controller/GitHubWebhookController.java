@@ -80,8 +80,7 @@ public class GitHubWebhookController {
                 response.put("message", "Invalid or expired session");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
-            
-            // Check if we've received any webhook events for this session
+           
             // Check if we've received any webhook events for this session
             logger.debug("Checking webhook status map for session: {}", sessionToken);
             logger.debug("Current webhook status map size: {}", webhookStatusMap.size());
@@ -147,14 +146,15 @@ public class GitHubWebhookController {
         
         try {
             // Validate session token
-        	// Track webhook event
-            trackWebhookEvent(sessionToken, event);
             if (!sessionService.isValidSession(sessionToken)) {
                 logger.warn("Invalid session token received in webhook: {}", sessionToken);
                 response.put("status", "error");
                 response.put("message", "Invalid or expired session");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
+            
+            // Track webhook event AFTER validation
+            trackWebhookEvent(sessionToken, event);
            
             // Get session data for additional validation and logging
             SessionService.SessionData sessionData = sessionService.getSessionByToken(sessionToken);

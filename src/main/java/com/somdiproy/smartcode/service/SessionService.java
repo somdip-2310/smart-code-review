@@ -341,6 +341,19 @@ public class SessionService {
     }
     
     /**
+     * Get email associated with session token
+     */
+    public String getSessionEmail(String sessionToken) {
+        SessionData sessionData = getSessionByToken(sessionToken);
+        
+        if (sessionData != null && !isSessionExpired(sessionData)) {
+            return sessionData.getEmail();
+        }
+        
+        return null;
+    }
+    
+    /**
      * Get remaining session time in milliseconds
      */
     public long getRemainingTime(String sessionToken) {

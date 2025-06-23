@@ -147,13 +147,27 @@
                                 Verify Connection
                             </h3>
                             <p class="text-gray-700 mb-4">
-                                Once configured, push a commit to test the integration. You'll receive an analysis report automatically.
+                                After adding the webhook in GitHub, it will automatically send a ping event. Click below to check if we received it.
                             </p>
+                            
+                            <!-- Test Connection Button -->
                             <button onclick="testWebhook()" 
                                     th:disabled="${sessionToken == null}"
                                     class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                Test Connection
+                                Check Connection Status
                             </button>
+                            
+                            <!-- Instructions for manual test -->
+                            <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                                <p class="text-sm text-blue-800">
+                                    <strong>Tip:</strong> After adding the webhook in GitHub, you can also test it by:
+                                </p>
+                                <ul class="mt-2 text-sm text-blue-700 list-disc list-inside">
+                                    <li>Going to Settings → Webhooks in your repository</li>
+                                    <li>Clicking on your webhook</li>
+                                    <li>Scrolling down and clicking "Redeliver" on the ping event</li>
+                                </ul>
+                            </div>
                         </div>
                         
                         <!-- Alternative Option -->
@@ -195,7 +209,9 @@
     <script th:inline="javascript">
         // Get session token from Thymeleaf
         const sessionToken = /*[[${sessionToken}]]*/ null;
+        window.sessionToken = sessionToken;
         let sessionTimer;
+        let webhookCheckInterval;
         
         // Check if we have a session token
         document.addEventListener('DOMContentLoaded', function() {
@@ -203,10 +219,6 @@
                 // No valid session token
                 document.getElementById('no-session-alert').classList.remove('hidden');
                 document.getElementById('instructions-card').classList.add('opacity-50', 'pointer-events-none');
-                
-                // Optionally, show the no-session card instead
-                // document.getElementById('instructions-card').classList.add('hidden');
-                // document.getElementById('no-session-card').classList.remove('hidden');
             } else {
                 // Start session timer
                 startSessionTimer();
@@ -270,286 +282,274 @@
             }
         }
         
-		function testWebhook() {
-		    // Get session token from page or localStorage
-		    if (!sessionToken || sessionToken === '{session-token}') {
-		        // Try to get from localStorage
-		        const storedSession = localStorage.getItem('smartcode_session');
-		        if (storedSession) {
-		            const sessionData = JSON.parse(storedSession);
-		            sessionToken = sessionData.sessionToken || sessionData.token;
-		            console.log('Retrieved session token from localStorage:', sessionToken);
-		        }
-		        
-		        if (!sessionToken) {
-		            alert('No valid session found. Please start a session first.');
-		            window.location.href = '/upload';
-		            return;
-		        }
-		    }
-		    
-		    console.log('Testing webhook with session token:', sessionToken);
-		    
-		    // Show loading state
-		    const button = event.target || document.querySelector('button[onclick="testWebhook()"]');
-		    const originalContent = button.innerHTML;
-		    button.disabled = true;
-		    button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Testing...';
-		    
-		    // Test webhook connection
-		    fetch(`/api/v1/github/webhook/test/${sessionToken}`, {
-		        method: 'POST',
-		        headers: {
-		            'Content-Type': 'application/json',
-		            'Accept': 'application/json'
-		        },
-		        body: JSON.stringify({
-		            test: true,
-		            timestamp: new Date().toISOString()
-		        })
-		    })
-		    .then(response => {
-		        console.log('Response status:', response.status);
-		        console.log('Response headers:', response.headers);
-		        
-		        if (!response.ok) {
-		            // Try to get error details
-		            return response.text().then(text => {
-		                console.error('Error response body:', text);
-		                throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
-		            });
-		        }
-		        return response.json();
-		    })
-		    .then(data => {
-		        console.log('Webhook test response:', data);
-		        
-		        if (data.status === 'success') {
-		            // Show success message
-		            button.classList.remove('bg-green-600');
-		            button.classList.add('bg-green-500');
-		            button.innerHTML = '<svg class="h-5 w-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Success!';
-		            
-		            // Show webhook URL if available
-		            if (data.webhookUrl) {
-		                console.log('Webhook URL:', data.webhookUrl);
-		                const webhookUrlInput = document.getElementById('webhook-url');
-		                if (webhookUrlInput && webhookUrlInput.value !== data.webhookUrl) {
-		                    webhookUrlInput.value = data.webhookUrl;
-		                }
-		                // Store webhook URL for future reference
-		                localStorage.setItem('webhookUrl', data.webhookUrl);
-		            }
-		            
-		            // Show next steps after a short delay
-		            setTimeout(() => {
-		                showNextSteps();
-		            }, 1000);
-		            
-		            setTimeout(() => {
-		                button.innerHTML = originalContent;
-		                button.disabled = false;
-		                button.classList.remove('bg-green-500');
-		                button.classList.add('bg-green-600');
-		            }, 3000);
-		        } else {
-		            throw new Error(data.message || 'Test failed');
-		        }
-		    })
-			.then(response => {
-			    console.log('Response status:', response.status);
-			    console.log('Response headers:', response.headers);
-			    
-			    if (!response.ok) {
-			        // Try to get error details
-			        return response.text().then(text => {
-			            let errorData;
-			            try {
-			                errorData = JSON.parse(text);
-			            } catch (e) {
-			                errorData = { message: text };
-			            }
-			            
-			            // Check if it's an authorization error
-			            if (response.status === 401 || response.status === 403) {
-			                console.error('Session validation failed:', errorData);
-			                // Clear invalid session data
-			                localStorage.removeItem('smartcode_session');
-			                localStorage.removeItem('smartcode_navigation');
-			                localStorage.removeItem('webhookUrl');
-			                
-			                // Show specific error and redirect
-			                alert('Your session has expired or is invalid. Please start a new session.');
-			                window.location.href = '/';
-			                return;
-			            }
-			            
-			            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-			        });
-			    }
-			    return response.json();
-			})
-			.then(data => {
-			    console.log('Webhook test response:', data);
-			    
-			    if (data.status === 'success') {
-			        // Show success message
-			        button.classList.remove('bg-green-600');
-			        button.classList.add('bg-green-500');
-			        button.innerHTML = '<svg class="h-5 w-5 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Success!';
-			        
-			        // Show webhook URL if available
-			        if (data.webhookUrl) {
-			            console.log('Webhook URL:', data.webhookUrl);
-			            const webhookUrlInput = document.getElementById('webhook-url');
-			            if (webhookUrlInput && webhookUrlInput.value !== data.webhookUrl) {
-			                webhookUrlInput.value = data.webhookUrl;
-			            }
-			            // Store webhook URL for future reference
-			            localStorage.setItem('webhookUrl', data.webhookUrl);
-			        }
-			        
-			        // Show next steps after a short delay
-			        setTimeout(() => {
-			            showNextSteps();
-			        }, 1000);
-			        
-			        setTimeout(() => {
-			            button.innerHTML = originalContent;
-			            button.disabled = false;
-			            button.classList.remove('bg-green-500');
-			            button.classList.add('bg-green-600');
-			        }, 3000);
-			    } else {
-			        throw new Error(data.message || 'Test failed');
-			    }
-			})
-			.catch(error => {
-			    console.error('Webhook test error:', error);
-			    
-			    // Show more detailed error message
-			    let errorMessage = 'Webhook test failed: ';
-			    if (error.message.includes('404')) {
-			        errorMessage += 'Webhook endpoint not found. Please check the configuration.';
-			    } else if (error.message.includes('network')) {
-			        errorMessage += 'Network error. Please check your internet connection.';
-			    } else if (error.message.includes('timeout')) {
-			        errorMessage += 'Request timed out. Please try again.';
-			    } else {
-			        errorMessage += error.message;
-			    }
-			    
-			    alert(errorMessage);
-			    button.innerHTML = originalContent;
-			    button.disabled = false;
-			});
-		    
-		    // Track event
-		    if (typeof gtag !== 'undefined') {
-		        gtag('event', 'webhook_test', {
-		            event_category: 'engagement',
-		            event_label: 'github_setup'
-		        });
-		    }
-		}
-
-		// Add the new showNextSteps function
-		function showNextSteps() {
-		    // Check if next steps already shown
-		    if (document.getElementById('webhook-next-steps')) {
-		        return;
-		    }
-		    
-		    const nextStepsHtml = `
-		        <div id="webhook-next-steps" class="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg animate-fade-in">
-		            <h3 class="text-lg font-semibold text-green-800 mb-3 flex items-center">
-		                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-		                </svg>
-		                Webhook Connected Successfully!
-		            </h3>
-		            <p class="text-green-700 mb-4">Your GitHub repository is now connected. Here's what happens next:</p>
-		            <ul class="space-y-2 text-green-700 mb-6">
-		                <li class="flex items-start">
-		                    <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-		                    </svg>
-		                    <span>Push code to your repository to trigger automatic analysis</span>
-		                </li>
-		                <li class="flex items-start">
-		                    <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-		                    </svg>
-		                    <span>Create or update pull requests for PR-based analysis</span>
-		                </li>
-		                <li class="flex items-start">
-		                    <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-		                    </svg>
-		                    <span>Analysis results will be posted as GitHub comments or check runs</span>
-		                </li>
-		            </ul>
-		            <div class="flex flex-wrap gap-3">
-		                <a href="/upload" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-		                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-		                    </svg>
-		                    Upload Files Instead
-		                </a>
-		                <a href="/analyze" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-		                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-		                    </svg>
-		                    Paste Code
-		                </a>
-		                <button onclick="showWebhookInstructions()" class="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
-		                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-		                    </svg>
-		                    View Instructions Again
-		                </button>
-		            </div>
-		        </div>
-		    `;
-		    
-		    // Find the verify connection section and insert after it
-		    const verifySection = document.querySelector('button[onclick="testWebhook()"]').closest('.mb-8');
-		    if (verifySection && verifySection.parentElement) {
-		        const nextStepsDiv = document.createElement('div');
-		        nextStepsDiv.innerHTML = nextStepsHtml;
-		        verifySection.parentElement.insertBefore(nextStepsDiv.firstElementChild, verifySection.nextSibling);
-		    }
-		    
-		    // Smooth scroll to next steps
-		    setTimeout(() => {
-		        document.getElementById('webhook-next-steps').scrollIntoView({ 
-		            behavior: 'smooth', 
-		            block: 'center' 
-		        });
-		    }, 100);
-		    
-		    // Track successful connection
-		    if (typeof gtag !== 'undefined') {
-		        gtag('event', 'webhook_connected', {
-		            event_category: 'engagement',
-		            event_label: 'github_setup_complete'
-		        });
-		    }
-		}
-
-		// Helper function to show instructions again
-		function showWebhookInstructions() {
-		    const instructionsSection = document.querySelector('.bg-white.rounded-lg.shadow-md.p-6');
-		    if (instructionsSection) {
-		        instructionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-		        // Add a highlight effect
-		        instructionsSection.style.transition = 'box-shadow 0.3s';
-		        instructionsSection.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.5)';
-		        setTimeout(() => {
-		            instructionsSection.style.boxShadow = '';
-		        }, 2000);
-		    }
-		}
+        function testWebhook() {
+            console.log('Checking webhook connection status...');
+            
+            // Get current session token
+            let currentSessionToken = window.sessionToken;
+            
+            if (!currentSessionToken) {
+                const sessionData = localStorage.getItem('smartcode_session');
+                if (sessionData) {
+                    try {
+                        const parsed = JSON.parse(sessionData);
+                        currentSessionToken = parsed.sessionToken || parsed.token;
+                    } catch (e) {
+                        console.error('Error parsing session data:', e);
+                    }
+                }
+            }
+            
+            if (!currentSessionToken) {
+                alert('No active session found. Please start a session first.');
+                window.location.href = '/upload';
+                return;
+            }
+            
+            console.log('Checking webhook status for session:', currentSessionToken);
+            
+            // Show loading state
+            const button = document.querySelector('button[onclick="testWebhook()"]');
+            if (!button) {
+                console.error('Could not find test webhook button');
+                return;
+            }
+            
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Checking...';
+            
+            // Clear any existing UI
+            clearAlerts();
+            
+            // Check webhook status
+            checkWebhookStatus(currentSessionToken)
+                .then(status => {
+                    if (status.connected) {
+                        showSuccessMessage(status);
+                    } else if (status.sessionValid) {
+                        showPendingMessage(status);
+                    } else {
+                        showErrorMessage(status.message || 'Webhook test failed');
+                    }
+                })
+                .catch(error => {
+                    console.error('Webhook test error:', error);
+                    showErrorMessage(error.message || 'Failed to check webhook status');
+                })
+                .finally(() => {
+                    // Reset button
+                    button.innerHTML = originalContent;
+                    button.disabled = false;
+                });
+            
+            // Track event
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'webhook_test', {
+                    event_category: 'engagement',
+                    event_label: 'github_setup'
+                });
+            }
+        }
+        
+        function checkWebhookStatus(sessionToken) {
+            // First, check if the webhook endpoint is reachable
+            return fetch(`/api/v1/github/webhook/status/${sessionToken}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok && response.status === 404) {
+                    // If status endpoint doesn't exist, fall back to test endpoint
+                    return testWebhookEndpoint(sessionToken);
+                }
+                return response.json();
+            })
+            .catch(() => {
+                // Fallback to test endpoint
+                return testWebhookEndpoint(sessionToken);
+            });
+        }
+        
+        function testWebhookEndpoint(sessionToken) {
+            return fetch(`/api/v1/github/webhook/test/${sessionToken}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    test: true,
+                    timestamp: new Date().toISOString()
+                })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        data.httpStatus = response.status;
+                        throw data;
+                    }
+                    return {
+                        connected: data.status === 'success',
+                        sessionValid: true,
+                        message: data.message,
+                        webhookUrl: data.webhookUrl,
+                        remainingMinutes: data.remainingMinutes
+                    };
+                });
+            });
+        }
+        
+        function clearAlerts() {
+            const alerts = ['webhook-next-steps', 'webhook-error-alert', 'webhook-pending-alert'];
+            alerts.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.remove();
+                }
+            });
+        }
+        
+        function showSuccessMessage(status) {
+            const successHtml = `
+                <div id="webhook-next-steps" class="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
+                    <h3 class="text-lg font-semibold text-green-800 mb-3 flex items-center">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Webhook Connected Successfully!
+                    </h3>
+                    <p class="text-green-700 mb-4">Your GitHub repository is now connected. Here's what happens next:</p>
+                    <ul class="space-y-2 text-green-700 mb-6">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Push code to your repository to trigger automatic analysis</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Create or update pull requests for PR-based analysis</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 mr-2 mt-0.5 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Analysis results will be posted as GitHub comments or check runs</span>
+                        </li>
+                    </ul>
+                    ${status.remainingMinutes && status.remainingMinutes < 5 ? `
+                        <div class="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded">
+                            <p class="text-yellow-800 text-sm">
+                                <strong>Note:</strong> Your session expires in ${status.remainingMinutes} minutes. 
+                                Make sure to test your webhook before the session expires.
+                            </p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            insertAlertAfterTestButton(successHtml);
+        }
+        
+        function showPendingMessage(status) {
+            const pendingHtml = `
+                <div id="webhook-pending-alert" class="mt-8 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h3 class="text-lg font-semibold text-yellow-800 mb-3 flex items-center">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Webhook Not Yet Connected
+                    </h3>
+                    <div class="text-yellow-700 space-y-3">
+                        <p>Your webhook endpoint is ready, but we haven't received any events from GitHub yet.</p>
+                        
+                        <div class="bg-white p-4 rounded border border-yellow-200">
+                            <p class="font-semibold mb-2">To complete the setup:</p>
+                            <ol class="list-decimal list-inside space-y-1 text-sm">
+                                <li>Go to your GitHub repository settings</li>
+                                <li>Add the webhook URL shown above</li>
+                                <li>GitHub will send a ping event automatically</li>
+                                <li>Click "Check Connection Status" again to verify</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <p class="text-sm">
+                                <strong>Already added the webhook?</strong> 
+                                You can trigger a test by going to Settings → Webhooks in your repo and clicking "Redeliver" on the ping event.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            insertAlertAfterTestButton(pendingHtml);
+        }
+        
+        function showErrorMessage(message) {
+            const errorHtml = `
+                <div id="webhook-error-alert" class="mt-8 p-6 bg-red-50 border border-red-200 rounded-lg">
+                    <h3 class="text-lg font-semibold text-red-800 mb-3 flex items-center">
+                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Connection Error
+                    </h3>
+                    <p class="text-red-700">${message}</p>
+                    
+                    <div class="mt-4 p-4 bg-red-100 rounded">
+                        <p class="text-sm text-red-800">
+                            <strong>Troubleshooting tips:</strong>
+                        </p>
+                        <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
+                            <li>Ensure your session is still active</li>
+                            <li>Check that the webhook URL is correctly copied</li>
+                            <li>Verify GitHub can reach the webhook endpoint</li>
+                            <li>Try creating a new session if the current one expired</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            insertAlertAfterTestButton(errorHtml);
+        }
+        
+        function insertAlertAfterTestButton(html) {
+            const verifySection = document.querySelector('button[onclick="testWebhook()"]').closest('.mb-8');
+            if (verifySection && verifySection.parentElement) {
+                const div = document.createElement('div');
+                div.innerHTML = html;
+                verifySection.parentElement.insertBefore(div.firstElementChild, verifySection.nextSibling);
+                
+                // Smooth scroll to the alert
+                setTimeout(() => {
+                    div.firstElementChild.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                }, 100);
+            }
+        }
+        
+        // Helper function to show instructions again
+        function showWebhookInstructions() {
+            const instructionsSection = document.getElementById('instructions-card');
+            if (instructionsSection) {
+                instructionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Add a highlight effect
+                instructionsSection.style.transition = 'box-shadow 0.3s';
+                instructionsSection.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.5)';
+                setTimeout(() => {
+                    instructionsSection.style.boxShadow = '';
+                }, 2000);
+            }
+        }
     </script>
 </body>
 </html>

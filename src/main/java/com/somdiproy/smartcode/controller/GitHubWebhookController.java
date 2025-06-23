@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.Mac;
@@ -25,6 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -57,6 +59,64 @@ public class GitHubWebhookController {
     private long maxPayloadSize;
     
     /**
+     * Track webhook events for each session
+     */
+    private final Map<String, WebhookStatus> webhookStatusMap = new ConcurrentHashMap<>();
+    
+    /**
+     * Get webhook connection status
+     */
+    @GetMapping("/webhook/status/{sessionToken}")
+    public ResponseEntity<Map<String, Object>> getWebhookStatus(@PathVariable String sessionToken) {
+        logger.info("Checking webhook status for session: {}", sessionToken);
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // Validate session token
+            if (!sessionService.isValidSession(sessionToken)) {
+                response.put("connected", false);
+                response.put("sessionValid", false);
+                response.put("message", "Invalid or expired session");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+            
+            // Check if we've received any webhook events for this session
+            WebhookStatus status = webhookStatusMap.get(sessionToken);
+            
+            if (status != null) {
+                response.put("connected", true);
+                response.put("sessionValid", true);
+                response.put("lastPingReceived", status.getLastPingTime());
+                response.put("totalEventsReceived", status.getTotalEvents());
+                response.put("lastEventType", status.getLastEventType());
+                response.put("message", "Webhook is connected and active");
+                
+                // Add session info
+                SessionData sessionData = sessionService.getSessionByToken(sessionToken);
+                if (sessionData != null) {
+                    long remainingTime = sessionService.getRemainingTime(sessionToken);
+                    response.put("remainingMinutes", remainingTime / 60000);
+                }
+            } else {
+                response.put("connected", false);
+                response.put("sessionValid", true);
+                response.put("message", "No webhook events received yet. Please configure the webhook in GitHub.");
+                response.put("webhookUrl", getWebhookUrl(sessionToken));
+            }
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Error checking webhook status", e);
+            response.put("connected", false);
+            response.put("sessionValid", false);
+            response.put("message", "Error checking webhook status");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
      * Handle incoming GitHub webhook events
      */
     @PostMapping("/webhook/{sessionToken}")
@@ -82,6 +142,9 @@ public class GitHubWebhookController {
                 response.put("message", "Invalid or expired session");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
+            
+            // Track webhook event
+            trackWebhookEvent(sessionToken, event);
             
             // Get session data for additional validation and logging
             SessionService.SessionData sessionData = sessionService.getSessionByToken(sessionToken);
@@ -120,6 +183,13 @@ public class GitHubWebhookController {
                 response.put("status", "success");
                 response.put("message", "Pong! Webhook successfully connected");
                 response.put("event", "ping");
+                
+                // Update webhook status for ping
+                WebhookStatus status = webhookStatusMap.get(sessionToken);
+                if (status != null) {
+                    status.setLastPingTime(System.currentTimeMillis());
+                }
+                
                 return ResponseEntity.ok(response);
             }
             
@@ -163,6 +233,35 @@ public class GitHubWebhookController {
             response.put("errorType", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+    
+    /**
+     * Track webhook events for status monitoring
+     */
+    private void trackWebhookEvent(String sessionToken, String eventType) {
+        WebhookStatus status = webhookStatusMap.computeIfAbsent(sessionToken, 
+            k -> new WebhookStatus());
+        
+        status.setLastEventTime(System.currentTimeMillis());
+        status.setLastEventType(eventType);
+        status.incrementTotalEvents();
+        
+        if ("ping".equals(eventType)) {
+            status.setLastPingTime(System.currentTimeMillis());
+        }
+        
+        logger.debug("Updated webhook status for session {}: {} events received", 
+            sessionToken, status.getTotalEvents());
+    }
+    
+    /**
+     * Clean up webhook status for expired sessions
+     */
+    @Scheduled(fixedDelay = 300000) // Every 5 minutes
+    public void cleanupWebhookStatus() {
+        webhookStatusMap.entrySet().removeIf(entry -> 
+            !sessionService.isValidSession(entry.getKey())
+        );
     }
 
     /**
@@ -244,20 +343,6 @@ public class GitHubWebhookController {
     }
     
     /**
-     * Get email associated with session token
-     */
-    public String getSessionEmail(String sessionToken) {
-        // Use the existing getSessionByToken method
-        SessionData sessionData = getSessionByToken(sessionToken);
-        
-        if (sessionData != null && !isSessionExpired(sessionData)) {
-            return sessionData.getEmail();
-        }
-        
-        return null;
-    }
-    
-    /**
      * Helper method to mask email
      */
     private String maskEmail(String email) {
@@ -313,6 +398,10 @@ public class GitHubWebhookController {
             response.put("status", "success");
             response.put("webhookUrl", getWebhookUrl(sessionToken));
             response.put("timestamp", System.currentTimeMillis());
+            
+            // Add remaining time info
+            long remainingTime = sessionService.getRemainingTime(sessionToken);
+            response.put("remainingMinutes", remainingTime / 60000);
             
             return ResponseEntity.ok(response);
             
@@ -379,7 +468,6 @@ public class GitHubWebhookController {
         }
     }
     
-   
     /**
      * Process push events
      */
@@ -415,7 +503,7 @@ public class GitHubWebhookController {
                 result.put("analyzed_files", changedFiles.size());
                 result.put("commit_sha", commitSha);
                 
-             // Trigger analysis for the changed files
+                // Trigger analysis for the changed files
                 if (!changedFiles.isEmpty()) {
                     repoName = (String) pushData.get("repository_name");
                     
@@ -499,7 +587,7 @@ public class GitHubWebhookController {
             result.put("pr_number", prNumber);
             result.put("title", title);
             
-         // Only analyze on opened or synchronize actions
+            // Only analyze on opened or synchronize actions
             if ("opened".equals(action) || "synchronize".equals(action)) {
                 String repoName = (String) prData.get("repository_name");
                 String headSha = (String) prData.get("head_sha");
@@ -623,5 +711,47 @@ public class GitHubWebhookController {
         // In production, this should use the actual domain from configuration
         String baseUrl = "https://smartcode.somdip.dev";
         return baseUrl + "/api/v1/github/webhook/" + sessionToken;
+    }
+    
+    /**
+     * Inner class to track webhook status
+     */
+    private static class WebhookStatus {
+        private long lastEventTime;
+        private long lastPingTime;
+        private String lastEventType;
+        private int totalEvents;
+        
+        public long getLastEventTime() {
+            return lastEventTime;
+        }
+        
+        public void setLastEventTime(long lastEventTime) {
+            this.lastEventTime = lastEventTime;
+        }
+        
+        public long getLastPingTime() {
+            return lastPingTime;
+        }
+        
+        public void setLastPingTime(long lastPingTime) {
+            this.lastPingTime = lastPingTime;
+        }
+        
+        public String getLastEventType() {
+            return lastEventType;
+        }
+        
+        public void setLastEventType(String lastEventType) {
+            this.lastEventType = lastEventType;
+        }
+        
+        public int getTotalEvents() {
+            return totalEvents;
+        }
+        
+        public void incrementTotalEvents() {
+            this.totalEvents++;
+        }
     }
 }

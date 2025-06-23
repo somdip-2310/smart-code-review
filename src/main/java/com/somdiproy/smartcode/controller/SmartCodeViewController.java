@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-
+import org.springframework.web.bind.annotation.PathVariable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 /**
  * Smart Code Review View Controller
  * Handles Thymeleaf template rendering for the frontend
@@ -24,6 +26,8 @@ public class SmartCodeViewController {
     
     @Value("${spring.application.name:Smart Code Review}")
     private String applicationName;
+    
+    private static final Logger logger = LoggerFactory.getLogger(SmartCodeViewController.class);
     
     /**
      * Add common attributes to all views in this controller
@@ -65,20 +69,7 @@ public class SmartCodeViewController {
         return "smartcode/upload";
     }
     
-    /**
-     * Results page - Display analysis results
-     */
-    @GetMapping("/results/{analysisId}")
-    public String results(@PathVariable String analysisId, Model model) {
-        model.addAttribute("title", "Analysis Results - Smart Code Review | Somdip Roy");
-        model.addAttribute("description", "View detailed code analysis results with security insights, performance metrics, and quality recommendations.");
-        model.addAttribute("currentPage", "results");
-        model.addAttribute("analysisId", analysisId);
-        model.addAttribute("googleAnalyticsId", googleAnalyticsId);
-        model.addAttribute("applicationName", applicationName);
-        
-        return "smartcode/results";
-    }
+   
     
     /**
      * Analyze page - Github Connect
@@ -121,6 +112,23 @@ public class SmartCodeViewController {
         model.addAttribute("googleAnalyticsId", googleAnalyticsId);
         
         return "smartcode/analyze";
+    }
+    
+    /**
+     * Results page - Display analysis results
+     */
+    @GetMapping("/results/{analysisId}")
+    public String results(@PathVariable String analysisId, Model model) {
+        model.addAttribute("title", "Analysis Results - Smart Code Review | Somdip Roy");
+        model.addAttribute("description", "View detailed code analysis results with security insights, performance metrics, and quality recommendations.");
+        model.addAttribute("currentPage", "results");
+        model.addAttribute("analysisId", analysisId);
+        model.addAttribute("googleAnalyticsId", googleAnalyticsId);
+        model.addAttribute("applicationName", applicationName);
+        
+        logger.info("Rendering results page for analysis: {}", analysisId);
+        
+        return "smartcode/results";
     }
     
     /**

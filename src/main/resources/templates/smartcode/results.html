@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Analysis Results - Smart Code Review</title>
+    <meta name="description" th:content="${description}">
+    
+    <!-- Core CSS -->
+    <link rel="stylesheet" href="/css/style.css" th:href="@{/css/style.css}">
+    <link rel="stylesheet" href="/css/smartcode.css" th:href="@{/css/smartcode.css}">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <!-- Header -->
+    <header th:replace="~{layout/header :: header}"></header>
+    
+    <!-- Main Content -->
+    <main class="flex-1">
+        <section class="py-12 px-4 md:px-6 lg:px-8">
+            <div class="max-w-5xl mx-auto">
+                <!-- Results Header -->
+                <div class="text-center mb-8">
+                    <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4">
+                        Analysis Results
+                    </h1>
+                    <p class="text-gray-600">Analysis ID: <span th:text="${analysisId}" class="font-mono text-sm">---</span></p>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loading-state" class="text-center py-12">
+                    <div class="inline-flex items-center justify-center">
+                        <svg class="animate-spin h-8 w-8 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-xl text-gray-700">Loading analysis results...</span>
+                    </div>
+                    <p class="text-gray-500 mt-4">This may take a few moments</p>
+                </div>
+                
+                <!-- Results Container (Hidden initially) -->
+                <div id="results-container" class="hidden">
+                    <!-- Results will be dynamically inserted here -->
+                </div>
+                
+                <!-- Error State (Hidden initially) -->
+                <div id="error-state" class="hidden text-center py-12">
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md mx-auto">
+                        <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <h3 class="text-lg font-semibold text-red-800 mb-2">Unable to Load Results</h3>
+                        <p class="text-red-600 mb-4" id="error-message">Failed to retrieve analysis results</p>
+                        <a href="/upload" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Try Again
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- Footer -->
+    <footer th:replace="~{layout/footer :: footer}"></footer>
+    
+    <!-- Core JavaScript -->
+    <script src="/js/utils.js" th:src="@{/js/utils.js}"></script>
+    <script src="/js/app.js" th:src="@{/js/app.js}"></script>
+    
+    <!-- Results Page Script -->
+    <script th:inline="javascript">
+        const analysisId = /*[[${analysisId}]]*/ 'test-id';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize app if available
+            if (window.smartCodeReviewApp) {
+                const app = window.smartCodeReviewApp;
+                
+                // Fetch and display results
+                fetchAnalysisResults();
+            } else {
+                console.error('App not initialized');
+                showError('Application not initialized');
+            }
+        });
+        
+        async function fetchAnalysisResults() {
+            const sessionToken = localStorage.getItem('sessionToken') || 
+                               sessionStorage.getItem('sessionToken');
+            
+            if (!sessionToken) {
+                showError('Session expired. Please start a new analysis.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/v1/code-review/analysis/${analysisId}?sessionToken=${sessionToken}`);
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    if (data.status === 'COMPLETED') {
+                        displayResults(data);
+                    } else if (data.status === 'PROCESSING') {
+                        // Poll for results
+                        setTimeout(fetchAnalysisResults, 2000);
+                    } else if (data.status === 'FAILED') {
+                        showError(data.message || 'Analysis failed');
+                    }
+                } else {
+                    showError(data.message || 'Failed to retrieve results');
+                }
+            } catch (error) {
+                console.error('Error fetching results:', error);
+                showError('Network error. Please check your connection.');
+            }
+        }
+        
+        function displayResults(data) {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('results-container').classList.remove('hidden');
+            
+            if (window.smartCodeReviewApp) {
+                window.smartCodeReviewApp.displayAnalysisResults(data);
+            }
+        }
+        
+        function showError(message) {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('error-state').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+    </script>
+    
+    <!-- Google Analytics -->
+    <script th:if="${googleAnalyticsId}">
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', /*[[${googleAnalyticsId}]]*/ 'G-TJMD3KM77H');
+    </script>
+</body>
+</html>

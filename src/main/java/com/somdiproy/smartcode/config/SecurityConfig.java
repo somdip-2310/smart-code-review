@@ -33,7 +33,8 @@ public class SecurityConfig {
             			    "/",
             			    "/upload",
             			    "/analyze",
-            			    "/github-connect",  // Add this line
+            			    "/results/**", 
+            			    "/github-connect",
             			    "/error",
             			    "/css/**",
             			    "/js/**",

@@ -13,6 +13,9 @@ import java.util.concurrent.CompletableFuture;
 import java.io.ByteArrayOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 
 /**
  * Code Analysis Service
@@ -48,6 +51,12 @@ public class CodeAnalysisService {
         try {
             logger.info("Starting ZIP file analysis: {}", analysisId);
             
+            // CRITICAL FIX: Read file content immediately before async processing
+            byte[] fileContent = file.getBytes();
+            String originalFilename = file.getOriginalFilename();
+            String contentType = file.getContentType();
+            long fileSize = file.getSize();
+            
             // Create initial response
             AnalysisResponse response = AnalysisResponse.builder()
                     .success(true)
@@ -61,10 +70,11 @@ public class CodeAnalysisService {
             // Store initial status
             analysisStorageService.storeAnalysis(analysisId, response);
             
-            // Process asynchronously
+            // Process asynchronously with byte array
             CompletableFuture.runAsync(() -> {
                 try {
-                    processZipFileAnalysis(analysisId, file, request);
+                    processZipFileAnalysisFromBytes(analysisId, fileContent, originalFilename, 
+                                                  contentType, fileSize, request);
                 } catch (Exception e) {
                     logger.error("Error in async ZIP analysis", e);
                     markAnalysisAsFailed(analysisId, e.getMessage());
@@ -84,6 +94,82 @@ public class CodeAnalysisService {
         }
     }
     
+	private void processZipFileAnalysisFromBytes(String analysisId, byte[] fileContent, String filename,
+			String contentType, long fileSize, AnalysisRequest request) {
+		try {
+			updateAnalysisProgress(analysisId, 20, "Uploading file to S3...");
+
+			// Upload to S3 with error handling
+			String s3Key = null;
+			try {
+				// Create an InputStream from byte array for S3 upload
+				InputStream inputStream = new ByteArrayInputStream(fileContent);
+				s3Key = s3Service.uploadFromInputStream(inputStream, fileSize, filename, contentType, analysisId);
+				logger.info("File uploaded to S3 with key: {}", s3Key);
+			} catch (Exception e) {
+				logger.error("S3 upload failed, continuing with analysis", e);
+				// Continue analysis even if S3 upload fails
+			}
+
+			updateAnalysisProgress(analysisId, 40, "Extracting code from ZIP...");
+
+			// Extract code from byte array
+			String extractedCode = extractCodeFromZipBytes(fileContent);
+
+			updateAnalysisProgress(analysisId, 60, "Running static analysis...");
+
+			updateAnalysisProgress(analysisId, 80, "Running AI analysis...");
+
+			// Analyze with Bedrock
+			CodeReviewResult result = bedrockService.analyzeCode(extractedCode, request.getLanguage());
+
+			updateAnalysisProgress(analysisId, 100, "Analysis completed");
+
+			// Mark as completed
+			AnalysisResponse finalResponse = AnalysisResponse.builder().success(true).analysisId(analysisId)
+					.status(AnalysisStatus.COMPLETED).message("Analysis completed successfully").result(result)
+					.createdAt(System.currentTimeMillis()).updatedAt(System.currentTimeMillis()).progressPercentage(100)
+					.s3Key(s3Key).build();
+
+			analysisStorageService.storeAnalysis(analysisId, finalResponse);
+
+		} catch (Exception e) {
+			logger.error("Error processing ZIP file analysis", e);
+			markAnalysisAsFailed(analysisId, e.getMessage());
+		}
+	}
+	
+	private String extractCodeFromZipBytes(byte[] zipContent) {
+	    StringBuilder extractedCode = new StringBuilder();
+	    
+	    try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipContent))) {
+	        ZipEntry zipEntry;
+	        
+	        while ((zipEntry = zis.getNextEntry()) != null) {
+	            if (!zipEntry.isDirectory() && isCodeFile(zipEntry.getName())) {
+	                // Read file content
+	                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	                byte[] buffer = new byte[1024];
+	                int len;
+	                
+	                while ((len = zis.read(buffer)) > 0) {
+	                    baos.write(buffer, 0, len);
+	                }
+	                
+	                String fileContent = baos.toString("UTF-8");
+	                extractedCode.append("// File: ").append(zipEntry.getName()).append("\n");
+	                extractedCode.append(fileContent).append("\n\n");
+	            }
+	            zis.closeEntry();
+	        }
+	    } catch (Exception e) {
+	        logger.error("Error extracting code from ZIP", e);
+	        throw new RuntimeException("Failed to extract code from ZIP", e);
+	    }
+	    
+	    return extractedCode.toString();
+	}
+	
     /**
      * Analyze pasted code
      */
@@ -155,8 +241,13 @@ public class CodeAnalysisService {
             updateAnalysisProgress(analysisId, 20, "Uploading file to S3...");
             
             // Upload to S3
-            String s3Key = s3Service.uploadZipFile(file, analysisId);
-            
+            String s3Key = null;
+            try {
+                s3Key = s3Service.uploadZipFile(file, analysisId);
+                logger.info("File uploaded to S3 with key: {}", s3Key);
+            }catch (Exception e) {
+                logger.error("S3 upload failed, continuing with analysis", e);
+            }
             updateAnalysisProgress(analysisId, 40, "Extracting code from ZIP...");
             
             // Extract code from ZIP

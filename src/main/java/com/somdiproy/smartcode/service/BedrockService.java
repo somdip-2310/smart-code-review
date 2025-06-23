@@ -24,7 +24,7 @@ import java.util.Map;
  * Amazon Bedrock Service for Smart Code Review
  * 
  * Integrates with Amazon Bedrock to provide AI-powered code analysis using
- * Claude 3 Sonnet. Handles code review requests, prompt engineering, and
+ * Nova Premier. Handles code review requests, prompt engineering, and
  * response parsing to deliver comprehensive code analysis results.
  * 
  * Features:
@@ -105,8 +105,8 @@ public class BedrockService {
             // Build analysis prompt
             String prompt = buildAnalysisPrompt(code, language);
             
-            // Invoke Claude model
-            String response = invokeClaudeModel(prompt);
+            // Invoke Nova Premier model
+            String response = invokeNovaModel(prompt);
             
             // Parse and return results
             CodeReviewResult result = parseAnalysisResponse(response);
@@ -191,23 +191,36 @@ public class BedrockService {
     }
     
     /**
-     * Invoke Claude model via Bedrock Runtime
+     * Invoke Nova Premier model via Bedrock Runtime
      */
-    private String invokeClaudeModel(String prompt) throws Exception {
+    private String invokeNovaModel(String prompt) throws Exception {
         try {
-            // Build request payload for Claude
+            // Build request payload for Nova Premier
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("anthropic_version", "bedrock-2023-05-31");
-            requestBody.put("max_tokens", 4000);
-            requestBody.put("temperature", 0.1); // Low temperature for consistent analysis
             
+            // Nova uses a different message format
             List<Map<String, Object>> messages = new ArrayList<>();
             Map<String, Object> message = new HashMap<>();
             message.put("role", "user");
-            message.put("content", prompt);
+            
+            // Nova expects content as an array
+            List<Map<String, Object>> contentArray = new ArrayList<>();
+            Map<String, Object> textContent = new HashMap<>();
+            textContent.put("text", prompt);
+            contentArray.add(textContent);
+            
+            message.put("content", contentArray);
             messages.add(message);
             
             requestBody.put("messages", messages);
+            
+            // Nova inference configuration
+            Map<String, Object> inferenceConfig = new HashMap<>();
+            inferenceConfig.put("maxTokens", 4000);
+            inferenceConfig.put("temperature", 0.1);
+            inferenceConfig.put("topP", 0.9);
+            
+            requestBody.put("inferenceConfig", inferenceConfig);
             
             String jsonBody = objectMapper.writeValueAsString(requestBody);
             
@@ -224,18 +237,26 @@ public class BedrockService {
             InvokeModelResponse response = getBedrockClient().invokeModel(request);
             String responseBody = response.body().asUtf8String();
             
-            // Parse Claude response
-            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-            List<Map<String, Object>> content = (List<Map<String, Object>>) responseMap.get("content");
             
-            if (content != null && !content.isEmpty()) {
-                return (String) content.get(0).get("text");
+            // Parse Nova response
+            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+
+            // Nova output
+            Map<String, Object> output = (Map<String, Object>) responseMap.get("output");
+            if (output != null) {
+                Map<String, Object> outputMessage = (Map<String, Object>) output.get("message");
+                if (outputMessage != null) {
+                    List<Map<String, Object>> content = (List<Map<String, Object>>) outputMessage.get("content");
+                    if (content != null && !content.isEmpty()) {
+                        return (String) content.get(0).get("text");
+                    }
+                }
             }
             
-            throw new RuntimeException("Invalid response from Claude model");
+            throw new RuntimeException("Invalid response from Nova model");
             
         } catch (Exception e) {
-            logger.error("Error invoking Claude model", e);
+            logger.error("Error invoking Nova model", e);
             throw new Exception("Failed to analyze code: " + e.getMessage(), e);
         }
     }

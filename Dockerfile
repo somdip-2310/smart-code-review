@@ -56,7 +56,7 @@ ENV JAVA_OPTS="-Xmx1024m -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 # Smart Code Review specific environment variables
 ENV AWS_REGION=us-east-1
 ENV AWS_BEDROCK_REGION=us-east-1
-ENV AWS_BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+ENV AWS_BEDROCK_MODEL_ID=us.amazon.nova-premier-v1:0
 ENV AWS_S3_BUCKET=smartcode-uploads
 ENV CORS_ALLOWED_ORIGINS=https://smartcode.somdip.dev,http://localhost:3000
 

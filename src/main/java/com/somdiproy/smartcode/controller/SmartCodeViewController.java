@@ -6,6 +6,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -64,6 +65,20 @@ public class SmartCodeViewController {
         return "smartcode/upload";
     }
     
+    /**
+     * Results page - Display analysis results
+     */
+    @GetMapping("/results/{analysisId}")
+    public String results(@PathVariable String analysisId, Model model) {
+        model.addAttribute("title", "Analysis Results - Smart Code Review | Somdip Roy");
+        model.addAttribute("description", "View detailed code analysis results with security insights, performance metrics, and quality recommendations.");
+        model.addAttribute("currentPage", "results");
+        model.addAttribute("analysisId", analysisId);
+        model.addAttribute("googleAnalyticsId", googleAnalyticsId);
+        model.addAttribute("applicationName", applicationName);
+        
+        return "smartcode/results";
+    }
     
     /**
      * Analyze page - Github Connect

@@ -6,13 +6,12 @@ import com.google.common.util.concurrent.RateLimiter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import com.somdiproy.smartcode.interceptor.RateLimitInterceptor;
-import com.somdiproy.smartcode.task.RateLimiterCleanupTask;
 
 
 /**
@@ -26,6 +25,7 @@ import com.somdiproy.smartcode.task.RateLimiterCleanupTask;
  * 
  * @author Somdip Roy
  */
+@EnableScheduling
 @Configuration
 public class RateLimitConfig implements WebMvcConfigurer {
     

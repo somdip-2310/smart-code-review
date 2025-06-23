@@ -82,7 +82,12 @@ public class GitHubWebhookController {
             }
             
             // Check if we've received any webhook events for this session
+            // Check if we've received any webhook events for this session
+            logger.debug("Checking webhook status map for session: {}", sessionToken);
+            logger.debug("Current webhook status map size: {}", webhookStatusMap.size());
             WebhookStatus status = webhookStatusMap.get(sessionToken);
+            logger.info("Webhook status for session {}: {}", sessionToken, 
+                        status != null ? "Found (events: " + status.getTotalEvents() + ")" : "Not found");
             
             if (status != null) {
                 response.put("connected", true);
@@ -134,18 +139,23 @@ public class GitHubWebhookController {
         response.put("timestamp", LocalDateTime.now());
         response.put("deliveryId", deliveryId);
         
+        // Default to ping if no event header (some GitHub configurations)
+        if (event == null || event.isEmpty()) {
+            logger.warn("No X-GitHub-Event header found, defaulting to ping");
+            event = "ping";
+        }
+        
         try {
             // Validate session token
+        	// Track webhook event
+            trackWebhookEvent(sessionToken, event);
             if (!sessionService.isValidSession(sessionToken)) {
                 logger.warn("Invalid session token received in webhook: {}", sessionToken);
                 response.put("status", "error");
                 response.put("message", "Invalid or expired session");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
-            
-            // Track webhook event
-            trackWebhookEvent(sessionToken, event);
-            
+           
             // Get session data for additional validation and logging
             SessionService.SessionData sessionData = sessionService.getSessionByToken(sessionToken);
             if (sessionData == null) {
@@ -177,18 +187,23 @@ public class GitHubWebhookController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
             
-            // Check if this is a ping event
+         // Check if this is a ping event
             if ("ping".equals(event)) {
-                logger.info("Received ping event from GitHub");
+                logger.info("Received ping event from GitHub for session: {}", sessionToken);
+                
+                // Ensure webhook status exists and update it
+                WebhookStatus status = webhookStatusMap.computeIfAbsent(sessionToken, k -> new WebhookStatus());
+                status.setLastPingTime(System.currentTimeMillis());
+                status.setLastEventType("ping");
+                status.incrementTotalEvents();
+                
+                logger.info("Updated webhook status for ping event - Session: {}, Total events: {}", 
+                            sessionToken, status.getTotalEvents());
                 response.put("status", "success");
                 response.put("message", "Pong! Webhook successfully connected");
                 response.put("event", "ping");
                 
-                // Update webhook status for ping
-                WebhookStatus status = webhookStatusMap.get(sessionToken);
-                if (status != null) {
-                    status.setLastPingTime(System.currentTimeMillis());
-                }
+                // No need to get status again - we already have it and updated it above
                 
                 return ResponseEntity.ok(response);
             }
@@ -239,8 +254,12 @@ public class GitHubWebhookController {
      * Track webhook events for status monitoring
      */
     private void trackWebhookEvent(String sessionToken, String eventType) {
+        logger.debug("Tracking webhook event: {} for session: {}", eventType, sessionToken);
         WebhookStatus status = webhookStatusMap.computeIfAbsent(sessionToken, 
-            k -> new WebhookStatus());
+            k -> {
+                logger.info("Creating new WebhookStatus for session: {}", sessionToken);
+                return new WebhookStatus();
+            });
         
         status.setLastEventTime(System.currentTimeMillis());
         status.setLastEventType(eventType);

@@ -360,13 +360,20 @@
                     'Accept': 'application/json'
                 }
             })
-            .then(response => {
-                if (!response.ok && response.status === 404) {
-                    // If status endpoint doesn't exist, fall back to test endpoint
-                    return testWebhookEndpoint(sessionToken);
-                }
-                return response.json();
-            })
+			.then(response => {
+			    console.log('Webhook status response:', response.status);
+			    if (!response.ok) {
+			        if (response.status === 404) {
+			            // If status endpoint doesn't exist, fall back to test endpoint
+			            return testWebhookEndpoint(sessionToken);
+			        }
+			        // For other errors, try to parse the response
+			        return response.json().catch(() => {
+			            throw new Error(`Server error: ${response.status}`);
+			        });
+			    }
+			    return response.json();
+			})
             .catch(() => {
                 // Fallback to test endpoint
                 return testWebhookEndpoint(sessionToken);

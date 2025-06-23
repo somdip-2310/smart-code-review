@@ -8,6 +8,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.core.retry.backoff.BackoffStrategy;
+import software.amazon.awssdk.core.retry.conditions.RetryCondition;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
@@ -15,10 +19,14 @@ import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Amazon Bedrock Service for Smart Code Review
@@ -53,6 +61,19 @@ public class BedrockService {
     private BedrockRuntimeClient bedrockClient;
     private ObjectMapper objectMapper;
     
+    private final BedrockRequestQueue requestQueue;
+    private final BedrockCircuitBreaker circuitBreaker;
+
+    private final CodeChunkingService codeChunkingService;
+
+    public BedrockService(BedrockRequestQueue requestQueue, 
+                         BedrockCircuitBreaker circuitBreaker,
+                         CodeChunkingService codeChunkingService) {
+        this.requestQueue = requestQueue;
+        this.circuitBreaker = circuitBreaker;
+        this.codeChunkingService = codeChunkingService;
+    }
+    
     @PostConstruct
     public void init() {
         this.objectMapper = new ObjectMapper();
@@ -63,6 +84,9 @@ public class BedrockService {
     public void cleanup() {
         if (bedrockClient != null) {
             bedrockClient.close();
+            if (requestQueue != null) {
+                requestQueue.shutdown();
+            }
             logger.info("BedrockService cleanup completed");
         }
     }
@@ -73,11 +97,25 @@ public class BedrockService {
     private BedrockRuntimeClient getBedrockClient() {
         if (bedrockClient == null) {
             try {
+                // Configure retry policy with exponential backoff
+                RetryPolicy retryPolicy = RetryPolicy.builder()
+                        .numRetries(5) // Increase retry attempts
+                        .retryCondition(RetryCondition.defaultRetryCondition())
+                        .backoffStrategy(BackoffStrategy.defaultThrottlingStrategy()) // Uses exponential backoff
+                        .throttlingBackoffStrategy(BackoffStrategy.defaultThrottlingStrategy())
+                        .build();
+                
+                // Configure client with custom retry and timeout settings
                 bedrockClient = BedrockRuntimeClient.builder()
                         .region(Region.of(bedrockRegion))
                         .credentialsProvider(DefaultCredentialsProvider.create())
+                        .overrideConfiguration(ClientOverrideConfiguration.builder()
+                                .retryPolicy(retryPolicy)
+                                .apiCallTimeout(Duration.ofSeconds(analysisTimeoutSeconds))
+                                .apiCallAttemptTimeout(Duration.ofSeconds(30))
+                                .build())
                         .build();
-                logger.info("BedrockRuntimeClient created successfully");
+                logger.info("BedrockRuntimeClient created successfully with retry configuration");
             } catch (Exception e) {
                 logger.error("Failed to create BedrockRuntimeClient", e);
                 throw new RuntimeException("Failed to initialize Bedrock client", e);
@@ -91,6 +129,12 @@ public class BedrockService {
      */
     public CodeReviewResult analyzeCode(String code, String language) {
         try {
+            // Check circuit breaker
+            if (!circuitBreaker.allowRequest()) {
+                logger.warn("Circuit breaker is open. Rejecting analysis request.");
+                return createErrorResult("Service temporarily unavailable. Please try again later.");
+            }
+            
             logger.info("Starting Bedrock analysis for language: {} (code length: {})", language, code.length());
             
             // Validate input
@@ -102,22 +146,169 @@ public class BedrockService {
                 language = "unknown";
             }
             
-            // Build analysis prompt
+            // Check if code needs chunking
+            if (!codeChunkingService.isWithinTokenLimit(code)) {
+                logger.info("Code exceeds token limit, using chunked analysis");
+                return analyzeCodeInChunks(code, language);
+            }
+            
+            // Single chunk analysis
             String prompt = buildAnalysisPrompt(code, language);
             
-            // Invoke Nova Premier model
-            String response = invokeNovaModel(prompt);
+            // Submit request through queue for rate limiting
+            CompletableFuture<String> responseFuture = requestQueue.submitRequest(() -> invokeNovaModel(prompt));
+            String response = responseFuture.get(analysisTimeoutSeconds, TimeUnit.SECONDS);
             
             // Parse and return results
             CodeReviewResult result = parseAnalysisResponse(response);
             
             logger.info("Analysis completed successfully for language: {}", language);
+            circuitBreaker.recordSuccess();
             return result;
             
         } catch (Exception e) {
             logger.error("Error analyzing code with Bedrock", e);
+            circuitBreaker.recordFailure();
             return createErrorResult("Analysis failed: " + e.getMessage());
         }
+    }
+
+    private CodeReviewResult analyzeCodeInChunks(String code, String language) {
+        try {
+            List<CodeChunkingService.CodeChunk> chunks = codeChunkingService.chunkCode(code, "main");
+            logger.info("Analyzing {} code chunks", chunks.size());
+            
+            List<CodeReviewResult> chunkResults = new ArrayList<>();
+            
+            for (int i = 0; i < chunks.size(); i++) {
+                CodeChunkingService.CodeChunk chunk = chunks.get(i);
+                logger.info("Analyzing chunk {}/{} (lines {}-{}, {} tokens)", 
+                    i + 1, chunks.size(), chunk.getStartLine(), chunk.getEndLine(), chunk.getEstimatedTokens());
+                
+                String chunkPrompt = buildChunkAnalysisPrompt(chunk, language, i + 1, chunks.size());
+                
+                try {
+                    CompletableFuture<String> responseFuture = requestQueue.submitRequest(() -> invokeNovaModel(chunkPrompt));
+                    String response = responseFuture.get(analysisTimeoutSeconds, TimeUnit.SECONDS);
+                    
+                    CodeReviewResult chunkResult = parseAnalysisResponse(response);
+                    chunkResults.add(chunkResult);
+                    
+                    // Add delay between chunks to avoid rate limiting
+                    if (i < chunks.size() - 1) {
+                        Thread.sleep(2000); // 2 second delay between chunks
+                    }
+                    
+                } catch (Exception e) {
+                    logger.error("Error analyzing chunk {}: {}", i + 1, e.getMessage());
+                    // Continue with other chunks
+                }
+            }
+            
+            // Merge results from all chunks
+            return mergeChunkResults(chunkResults);
+            
+        } catch (Exception e) {
+            logger.error("Error in chunked analysis", e);
+            return createErrorResult("Chunked analysis failed: " + e.getMessage());
+        }
+    }
+
+    private String buildChunkAnalysisPrompt(CodeChunkingService.CodeChunk chunk, String language, int chunkNumber, int totalChunks) {
+        return String.format("""
+            You are analyzing chunk %d of %d from a %s code file.
+            Lines %d-%d of the file are shown below.
+            
+            Analyze this code chunk for:
+            1. Security vulnerabilities
+            2. Performance issues
+            3. Code quality problems
+            4. Best practices violations
+            5. Potential bugs
+            
+            Note: This is a partial code analysis. Some issues may require full context.
+            
+            Provide your response in JSON format following the standard structure.
+            
+            Code chunk:
+            ```%s
+            %s
+            ```
+            
+            Respond only with valid JSON, no additional text or markdown formatting.
+            """, chunkNumber, totalChunks, language, chunk.getStartLine(), chunk.getEndLine(), 
+            language, chunk.getContent());
+    }
+
+    private CodeReviewResult mergeChunkResults(List<CodeReviewResult> chunkResults) {
+        if (chunkResults.isEmpty()) {
+            return createErrorResult("No chunk results to merge");
+        }
+        
+        // Aggregate all issues, suggestions, etc. from chunks
+        List<Issue> allIssues = new ArrayList<>();
+        List<Suggestion> allSuggestions = new ArrayList<>();
+        List<String> allVulnerabilities = new ArrayList<>();
+        List<String> allBottlenecks = new ArrayList<>();
+        List<String> allOptimizations = new ArrayList<>();
+        List<String> allRecommendations = new ArrayList<>();
+        
+        double totalScore = 0;
+        int validScores = 0;
+        
+        for (CodeReviewResult result : chunkResults) {
+            if (result.getIssues() != null) allIssues.addAll(result.getIssues());
+            if (result.getSuggestions() != null) allSuggestions.addAll(result.getSuggestions());
+            if (result.getSecurity() != null && result.getSecurity().getVulnerabilities() != null) {
+                allVulnerabilities.addAll(result.getSecurity().getVulnerabilities());
+            }
+            if (result.getPerformance() != null) {
+                if (result.getPerformance().getBottlenecks() != null) {
+                    allBottlenecks.addAll(result.getPerformance().getBottlenecks());
+                }
+                if (result.getPerformance().getOptimizations() != null) {
+                    allOptimizations.addAll(result.getPerformance().getOptimizations());
+                }
+            }
+            if (result.getSecurity() != null && result.getSecurity().getRecommendations() != null) {
+                allRecommendations.addAll(result.getSecurity().getRecommendations());
+            }
+            
+            if (result.getOverallScore() > 0) {
+                totalScore += result.getOverallScore();
+                validScores++;
+            }
+        }
+        
+        double averageScore = validScores > 0 ? totalScore / validScores : 5.0;
+        
+        return CodeReviewResult.builder()
+                .summary("Comprehensive analysis completed across " + chunkResults.size() + " code chunks")
+                .overallScore(averageScore)
+                .issues(allIssues)
+                .suggestions(allSuggestions)
+                .security(SecurityAnalysis.builder()
+                        .securityScore(averageScore)
+                        .vulnerabilities(allVulnerabilities)
+                        .recommendations(allRecommendations)
+                        .hasSecurityIssues(!allVulnerabilities.isEmpty())
+                        .build())
+                .performance(PerformanceAnalysis.builder()
+                        .performanceScore(averageScore)
+                        .bottlenecks(allBottlenecks)
+                        .optimizations(allOptimizations)
+                        .complexity("Complex")
+                        .build())
+                .quality(QualityMetrics.builder()
+                        .maintainabilityScore(averageScore)
+                        .readabilityScore(averageScore)
+                        .linesOfCode(0)
+                        .complexityScore(5)
+                        .testCoverage(0.0)
+                        .duplicateLines(0)
+                        .build())
+                .metadata(new HashMap<>())
+                .build();
     }
     
     /**

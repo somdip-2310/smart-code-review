@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -154,35 +155,6 @@ public class GitHubService {
         return result;
     }
     
-    /**
-     * Fetch file content from GitHub
-     */
-    public String fetchFileContent(String repoFullName, String path, String ref) {
-        try {
-            String url = String.format("%s/repos/%s/contents/%s?ref=%s", 
-                githubApiBaseUrl, repoFullName, path, ref);
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Accept", "application/vnd.github.v3.raw");
-            if (!githubApiToken.isEmpty()) {
-                headers.set("Authorization", "Bearer " + githubApiToken);
-            }
-            
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            ResponseEntity<String> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, String.class
-            );
-            
-            if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
-            }
-            
-        } catch (Exception e) {
-            logger.error("Error fetching file content from GitHub: {}", e.getMessage());
-        }
-        
-        return null;
-    }
     
     /**
      * Get list of changed files in a pull request
@@ -273,6 +245,64 @@ public class GitHubService {
         } catch (Exception e) {
             logger.error("Error creating check run: {}", e.getMessage());
         }
+    }
+    
+    /**
+     * Fetch file content from GitHub
+     */
+    public String fetchFileContent(String repoFullName, String path, String ref) {
+        try {
+            String url = String.format("%s/repos/%s/contents/%s?ref=%s", 
+                githubApiBaseUrl, repoFullName, path, ref);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Accept", "application/vnd.github.v3+json");
+            if (!githubApiToken.isEmpty()) {
+                headers.set("Authorization", "Bearer " + githubApiToken);
+            }
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, String.class
+            );
+            
+            if (response.getStatusCode() == HttpStatus.OK) {
+                JsonNode file = objectMapper.readTree(response.getBody());
+                String content = file.path("content").asText();
+                // GitHub returns base64 encoded content
+                return new String(Base64.getDecoder().decode(content), StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
+            logger.error("Error fetching file content from GitHub: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Fetch multiple files from a commit
+     */
+    public Map<String, String> fetchFilesFromCommit(String repoFullName, 
+                                                    List<String> filePaths, 
+                                                    String commitSha) {
+        Map<String, String> fileContents = new HashMap<>();
+        
+        for (String path : filePaths) {
+            if (isCodeFile(path)) {
+                String content = fetchFileContent(repoFullName, path, commitSha);
+                if (content != null) {
+                    fileContents.put(path, content);
+                }
+            }
+        }
+        
+        return fileContents;
+    }
+
+    private boolean isCodeFile(String fileName) {
+        String[] extensions = {".java", ".py", ".js", ".ts", ".cpp", ".c", 
+                              ".cs", ".go", ".rb", ".php", ".swift", ".kt"};
+        String lower = fileName.toLowerCase();
+        return Arrays.stream(extensions).anyMatch(lower::endsWith);
     }
     
     /**

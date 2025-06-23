@@ -124,7 +124,53 @@ class SmartCodeReviewApp {
             }
         });
     }
-    
+	/**
+	 * Store session data in localStorage for navigation
+	 */
+	storeSessionForNavigation() {
+	    if (this.sessionData && this.sessionData.sessionToken) {
+	        const navigationData = {
+	            sessionToken: this.sessionData.sessionToken,
+	            sessionId: this.sessionData.sessionId,
+	            expiresAt: this.sessionData.expiresAt,
+	            webhookUrl: this.sessionData.webhookUrl
+	        };
+	        localStorage.setItem('smartcode_session', JSON.stringify(navigationData));
+	    }
+	}
+
+	/**
+	 * Restore session from localStorage
+	 */
+	restoreSessionFromStorage() {
+	    const storedSession = localStorage.getItem('smartcode_session');
+	    if (storedSession) {
+	        try {
+	            const sessionData = JSON.parse(storedSession);
+	            // Check if session is still valid
+	            if (sessionData.expiresAt && new Date(sessionData.expiresAt) > new Date()) {
+	                this.sessionData = sessionData;
+	                this.updateSessionDisplay();
+	                return true;
+	            } else {
+	                // Session expired, clear it
+	                localStorage.removeItem('smartcode_session');
+	            }
+	        } catch (e) {
+	            console.error('Error restoring session:', e);
+	        }
+	    }
+	    return false;
+	}
+
+	/**
+	 * Navigate to GitHub connect with session
+	 */
+	goToGitHubConnect() {
+	    this.storeSessionForNavigation();
+	    const sessionToken = this.sessionData.sessionToken || this.sessionData.token;
+	    window.location.href = `/github-connect?sessionToken=${sessionToken}`;
+	}
     /**
      * Initialize UI components
      */

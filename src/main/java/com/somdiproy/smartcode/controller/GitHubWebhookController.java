@@ -1,10 +1,13 @@
 package com.somdiproy.smartcode.controller;
 
+import com.somdiproy.smartcode.dto.AnalysisRequest;
 import com.somdiproy.smartcode.dto.AnalysisResponse;
+import com.somdiproy.smartcode.dto.AnalysisType;
 import com.somdiproy.smartcode.dto.GitHubWebhookPayload;
 import com.somdiproy.smartcode.service.CodeAnalysisService;
 import com.somdiproy.smartcode.service.GitHubService;
 import com.somdiproy.smartcode.service.SessionService;
+import com.somdiproy.smartcode.service.SessionService.SessionData;
 import com.somdiproy.smartcode.util.GitHubWebhookValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +21,11 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * GitHub Webhook Controller
@@ -72,11 +77,24 @@ public class GitHubWebhookController {
         try {
             // Validate session token
             if (!sessionService.isValidSession(sessionToken)) {
-                logger.warn("Invalid session token: {}", sessionToken);
+                logger.warn("Invalid session token received in webhook: {}", sessionToken);
                 response.put("status", "error");
                 response.put("message", "Invalid or expired session");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
+            
+            // Get session data for additional validation and logging
+            SessionService.SessionData sessionData = sessionService.getSessionByToken(sessionToken);
+            if (sessionData == null) {
+                logger.error("Session validation passed but data not found for token: {}", sessionToken);
+                response.put("status", "error");
+                response.put("message", "Session data corrupted");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
+            
+            String userEmail = sessionData.getEmail();
+            logger.info("Valid webhook received for session: {} (user: {})", 
+                        sessionToken, maskEmail(userEmail));
             
             // Validate webhook signature if secret is configured
             if (webhookSecret != null && !webhookSecret.isEmpty()) {
@@ -96,11 +114,45 @@ public class GitHubWebhookController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
             
+            // Check if this is a ping event
+            if ("ping".equals(event)) {
+                logger.info("Received ping event from GitHub");
+                response.put("status", "success");
+                response.put("message", "Pong! Webhook successfully connected");
+                response.put("event", "ping");
+                return ResponseEntity.ok(response);
+            }
+            
+            // Check if we support this event type
+            List<String> supportedEvents = Arrays.asList("push", "pull_request", "repository");
+            if (event != null && !supportedEvents.contains(event)) {
+                logger.info("Unsupported event type: {}", event);
+                response.put("status", "ignored");
+                response.put("message", "Event type not supported: " + event);
+                response.put("supportedEvents", supportedEvents);
+                return ResponseEntity.ok(response);
+            }
+            
             // Process the webhook based on event type
             response.put("event", event);
+            response.put("userEmail", maskEmail(userEmail));
+            
             Map<String, Object> eventData = processWebhookEvent(event, payload, sessionToken);
+            
+            // Check if processing was successful
+            if (eventData.containsKey("error")) {
+                response.put("status", "error");
+                response.put("message", eventData.get("error"));
+                response.put("data", eventData);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
+            
             response.put("status", "success");
             response.put("data", eventData);
+            
+            // Log successful processing
+            logger.info("Successfully processed {} event for session: {} (analysis_id: {})", 
+                        event, sessionToken, eventData.get("analysis_id"));
             
             return ResponseEntity.ok(response);
             
@@ -108,43 +160,176 @@ public class GitHubWebhookController {
             logger.error("Error processing webhook for session: " + sessionToken, e);
             response.put("status", "error");
             response.put("message", "Failed to process webhook: " + e.getMessage());
+            response.put("errorType", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Process webhook events based on type
+     */
+    private Map<String, Object> processWebhookEvent(String event, String payload, String sessionToken) 
+            throws Exception {
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        if (event == null) {
+            result.put("error", "No event type specified");
+            return result;
+        }
+        
+        switch (event) {
+            case "push":
+                result = processPushEvent(payload, sessionToken);
+                break;
+                
+            case "pull_request":
+                result = processPullRequestEvent(payload, sessionToken);
+                break;
+                
+            case "repository":
+                result = processRepositoryEvent(payload, sessionToken);
+                break;
+                
+            case "ping":
+                result.put("message", "Pong! Webhook successfully connected");
+                result.put("status", "active");
+                break;
+                
+            default:
+                logger.info("Unhandled event type: {}", event);
+                result.put("message", "Event type not supported: " + event);
+                result.put("status", "ignored");
+        }
+        
+        return result;
+    }
+
+    /**
+     * Validate GitHub webhook signature
+     */
+    private boolean validateWebhookSignature(String payload, String signature) {
+        if (signature == null || !signature.startsWith("sha256=")) {
+            return false;
+        }
+        
+        try {
+            String expected = "sha256=" + calculateHmacSha256(payload, webhookSecret);
+            return MessageDigest.isEqual(expected.getBytes(), signature.getBytes());
+        } catch (Exception e) {
+            logger.error("Error validating webhook signature", e);
+            return false;
+        }
+    }
+
+    /**
+     * Calculate HMAC SHA256
+     */
+    private String calculateHmacSha256(String data, String secret) 
+            throws NoSuchAlgorithmException, InvalidKeyException {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec secretKeySpec = new SecretKeySpec(
+            secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        mac.init(secretKeySpec);
+        byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        
+        // Convert to hex string
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+    }
+    
+    /**
+     * Get email associated with session token
+     */
+    public String getSessionEmail(String sessionToken) {
+        // Use the existing getSessionByToken method
+        SessionData sessionData = getSessionByToken(sessionToken);
+        
+        if (sessionData != null && !isSessionExpired(sessionData)) {
+            return sessionData.getEmail();
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Helper method to mask email
+     */
+    private String maskEmail(String email) {
+        if (email == null || email.length() < 3) return "***";
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 0) return "***";
+        
+        String username = email.substring(0, atIndex);
+        String domain = email.substring(atIndex);
+        
+        if (username.length() <= 2) {
+            return username.charAt(0) + "*" + domain;
+        } else {
+            return username.charAt(0) + 
+                   "*".repeat(Math.min(username.length() - 2, 3)) + 
+                   username.charAt(username.length() - 1) + 
+                   domain;
         }
     }
     
     /**
-     * Test webhook connection
+     * Test webhook endpoint
      */
     @PostMapping("/webhook/test/{sessionToken}")
-    public ResponseEntity<Map<String, Object>> testWebhook(
-            @PathVariable String sessionToken) {
-        
+    public ResponseEntity<Map<String, Object>> testWebhook(@PathVariable String sessionToken) {
         logger.info("Testing webhook connection for session: {}", sessionToken);
         
         Map<String, Object> response = new HashMap<>();
+        response.put("sessionToken", sessionToken);
         
         try {
-            // Validate session
+            // CRITICAL: Validate the session token
             if (!sessionService.isValidSession(sessionToken)) {
+                logger.warn("Invalid session token for webhook test: {}", sessionToken);
                 response.put("status", "error");
-                response.put("message", "Invalid or expired session");
+                response.put("message", "Invalid or expired session token");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
             
-            response.put("status", "success");
+            // Get session details to confirm it exists
+            String userEmail = sessionService.getSessionEmail(sessionToken);
+            if (userEmail == null) {
+                logger.warn("Session exists but no email found for token: {}", sessionToken);
+                response.put("status", "error");
+                response.put("message", "Session is invalid or corrupted");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+            
+            logger.info("Webhook test successful for session: {} (user: {})", 
+                        sessionToken, userEmail.replaceAll("(?<=.{1}).(?=.*@)", "*"));
+            
             response.put("message", "Webhook connection successful");
-            response.put("sessionToken", sessionToken);
-            response.put("timestamp", LocalDateTime.now());
-            response.put("webhookUrl", generateWebhookUrl(sessionToken));
+            response.put("status", "success");
+            response.put("webhookUrl", getWebhookUrl(sessionToken));
+            response.put("timestamp", System.currentTimeMillis());
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
             logger.error("Error testing webhook", e);
             response.put("status", "error");
-            response.put("message", "Connection test failed: " + e.getMessage());
+            response.put("message", "Internal server error");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+
+    /**
+     * Helper method to generate webhook URL
+     */
+    private String getWebhookUrl(String sessionToken) {
+        // Use the actual domain from configuration or request
+        return String.format("https://smartcode.somdip.dev/api/v1/github/webhook/%s", sessionToken);
     }
     
     /**
@@ -194,41 +379,7 @@ public class GitHubWebhookController {
         }
     }
     
-    /**
-     * Process webhook events based on type
-     */
-    private Map<String, Object> processWebhookEvent(String event, String payload, String sessionToken) 
-            throws Exception {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        switch (event) {
-            case "push":
-                result = processPushEvent(payload, sessionToken);
-                break;
-                
-            case "pull_request":
-                result = processPullRequestEvent(payload, sessionToken);
-                break;
-                
-            case "repository":
-                result = processRepositoryEvent(payload, sessionToken);
-                break;
-                
-            case "ping":
-                result.put("message", "Pong! Webhook successfully connected");
-                result.put("status", "active");
-                break;
-                
-            default:
-                logger.info("Unhandled event type: {}", event);
-                result.put("message", "Event type not supported: " + event);
-                result.put("status", "ignored");
-        }
-        
-        return result;
-    }
-    
+   
     /**
      * Process push events
      */
@@ -264,13 +415,58 @@ public class GitHubWebhookController {
                 result.put("analyzed_files", changedFiles.size());
                 result.put("commit_sha", commitSha);
                 
-                // Trigger analysis for the changed files
+             // Trigger analysis for the changed files
                 if (!changedFiles.isEmpty()) {
-                    // Note: In a real implementation, you would fetch the file contents
-                    // from GitHub and analyze them
-                    logger.info("Analyzing {} files from commit {}", changedFiles.size(), commitSha);
-                    result.put("analysis_status", "queued");
-                    result.put("analysis_id", UUID.randomUUID().toString());
+                    repoName = (String) pushData.get("repository_name");
+                    
+                    // Fetch file contents from GitHub
+                    Map<String, String> fileContents = new HashMap<>();
+                    for (String filePath : changedFiles) {
+                        String content = gitHubService.fetchFileContent(repoName, filePath, commitSha);
+                        if (content != null && isCodeFile(filePath)) {
+                            fileContents.put(filePath, content);
+                        }
+                    }
+                    
+                    if (!fileContents.isEmpty()) {
+                        // Prepare combined code for analysis
+                        StringBuilder combinedCode = new StringBuilder();
+                        List<String> fileNames = new ArrayList<>();
+                        
+                        for (Map.Entry<String, String> entry : fileContents.entrySet()) {
+                            combinedCode.append("// File: ").append(entry.getKey()).append("\n");
+                            combinedCode.append(entry.getValue()).append("\n\n");
+                            fileNames.add(entry.getKey());
+                        }
+                        
+                        // Create analysis request using correct field names
+                        AnalysisRequest analysisRequest = AnalysisRequest.builder()
+                            .type(AnalysisType.GITHUB_WEBHOOK)
+                            .sessionToken(sessionToken)  // Note: it's sessionToken, not sessionId
+                            .fileName(String.join(",", fileNames))
+                            .language("auto-detect")
+                            .build();
+                        
+                        // Trigger the actual analysis
+                        AnalysisResponse analysisResponse = codeAnalysisService.analyzeCode(
+                            combinedCode.toString(), analysisRequest
+                        );
+                        
+                        result.put("analysis_status", "started");
+                        result.put("analysis_id", analysisResponse.getAnalysisId());
+                        result.put("analysis_message", analysisResponse.getMessage());
+                        
+                        logger.info("Started analysis {} for {} files from commit {}", 
+                            analysisResponse.getAnalysisId(), fileContents.size(), commitSha);
+                            
+                        // Optional: Create GitHub check run
+                        gitHubService.createCheckRun(repoName, commitSha, 
+                            "Smart Code Review", "in_progress", null, 
+                            "Analyzing " + fileContents.size() + " files...");
+                    } else {
+                        result.put("analysis_status", "skipped");
+                        result.put("reason", "No code files found to analyze");
+                    }
                 }
             }
             
@@ -303,11 +499,60 @@ public class GitHubWebhookController {
             result.put("pr_number", prNumber);
             result.put("title", title);
             
-            // Only analyze on opened or synchronize actions
+         // Only analyze on opened or synchronize actions
             if ("opened".equals(action) || "synchronize".equals(action)) {
-                result.put("analysis_status", "queued");
-                result.put("analysis_id", UUID.randomUUID().toString());
-                logger.info("Queued analysis for PR #{}: {}", prNumber, title);
+                String repoName = (String) prData.get("repository_name");
+                String headSha = (String) prData.get("head_sha");
+                int prNumberInt = Integer.parseInt(prNumber);
+                
+                // Use the correct method name: getPullRequestFiles
+                List<Map<String, String>> prFiles = gitHubService.getPullRequestFiles(
+                    repoName, prNumberInt
+                );
+                
+                // Fetch file contents
+                Map<String, String> fileContents = new HashMap<>();
+                for (Map<String, String> fileInfo : prFiles) {
+                    String filePath = fileInfo.get("filename");
+                    if (isCodeFile(filePath)) {
+                        String content = gitHubService.fetchFileContent(repoName, filePath, headSha);
+                        if (content != null) {
+                            fileContents.put(filePath, content);
+                        }
+                    }
+                }
+                
+                if (!fileContents.isEmpty()) {
+                    // Prepare combined code for analysis
+                    StringBuilder combinedCode = new StringBuilder();
+                    List<String> fileNames = new ArrayList<>();
+                    
+                    for (Map.Entry<String, String> entry : fileContents.entrySet()) {
+                        combinedCode.append("// File: ").append(entry.getKey()).append("\n");
+                        combinedCode.append(entry.getValue()).append("\n\n");
+                        fileNames.add(entry.getKey());
+                    }
+                    
+                    // Create analysis request with correct field names
+                    AnalysisRequest analysisRequest = AnalysisRequest.builder()
+                        .type(AnalysisType.GITHUB_WEBHOOK)
+                        .sessionToken(sessionToken)  // Using sessionToken, not sessionId
+                        .fileName("PR #" + prNumber + ": " + String.join(",", fileNames))
+                        .language("auto-detect")
+                        .build();
+                    
+                    AnalysisResponse analysisResponse = codeAnalysisService.analyzeCode(
+                        combinedCode.toString(), analysisRequest
+                    );
+                    
+                    result.put("analysis_status", "started");
+                    result.put("analysis_id", analysisResponse.getAnalysisId());
+                    
+                    // Create GitHub check run for PR
+                    gitHubService.createCheckRun(repoName, headSha,
+                        "Smart Code Review", "in_progress", null,
+                        "Analyzing PR #" + prNumber + " (" + fileContents.size() + " files)");
+                }
             } else {
                 result.put("analysis_status", "skipped");
                 result.put("reason", "Action not configured for analysis");
@@ -337,49 +582,24 @@ public class GitHubWebhookController {
     }
     
     /**
-     * Validate GitHub webhook signature
+     * Check if file is a code file based on extension
      */
-    private boolean validateWebhookSignature(String payload, String signature) {
-        if (signature == null || !signature.startsWith("sha256=")) {
-            return false;
-        }
+    private boolean isCodeFile(String fileName) {
+        String[] codeExtensions = {
+            ".java", ".py", ".js", ".ts", ".cpp", ".c", ".cs", ".go", 
+            ".rb", ".php", ".swift", ".kt", ".rs", ".scala", ".html", 
+            ".css", ".xml", ".json", ".yaml", ".yml", ".sql"
+        };
         
-        try {
-            String expected = "sha256=" + calculateHmacSha256(payload, webhookSecret);
-            return constantTimeEquals(expected, signature);
-        } catch (Exception e) {
-            logger.error("Error validating webhook signature", e);
-            return false;
-        }
-    }
-    
-    /**
-     * Calculate HMAC SHA256
-     */
-    private String calculateHmacSha256(String data, String secret) 
-            throws NoSuchAlgorithmException, InvalidKeyException {
-        
-        Mac mac = Mac.getInstance("HmacSHA256");
-        SecretKeySpec secretKeySpec = new SecretKeySpec(
-            secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"
-        );
-        mac.init(secretKeySpec);
-        
-        byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        
-        // Convert to hex string
-        StringBuilder hexString = new StringBuilder();
-        for (byte b : hash) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
+        String lowerFileName = fileName.toLowerCase();
+        for (String ext : codeExtensions) {
+            if (lowerFileName.endsWith(ext)) {
+                return true;
             }
-            hexString.append(hex);
         }
-        
-        return hexString.toString();
+        return false;
     }
-    
+     
     /**
      * Constant time string comparison to prevent timing attacks
      */

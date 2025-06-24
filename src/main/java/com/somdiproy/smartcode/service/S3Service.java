@@ -27,17 +27,13 @@ public class S3Service {
     @Value("${aws.s3.region:us-east-1}")
     private String region;
     
-    private S3Client s3Client;
-    
-    private S3Client getS3Client() {
-        if (s3Client == null) {
-            s3Client = S3Client.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(DefaultCredentialsProvider.create())
-                    .build();
-        }
-        return s3Client;
+    private final S3Client s3Client;
+
+    public S3Service(S3Client s3Client) {
+        this.s3Client = s3Client;
     }
+
+    // Remove the getS3Client() method entirely
     
     public String uploadZipFile(MultipartFile file, String analysisId) {
         try {
@@ -55,7 +51,7 @@ public class S3Service {
                     .contentLength(file.getSize())
                     .build();
             
-            getS3Client().putObject(putObjectRequest, 
+            s3Client.putObject(putObjectRequest, 
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
             
             logger.info("File uploaded successfully to S3: {}/{}", bucketName, s3Key);
@@ -78,7 +74,7 @@ public class S3Service {
 			PutObjectRequest putObjectRequest = PutObjectRequest.builder().bucket(bucketName).key(s3Key)
 					.contentType(contentType).contentLength(contentLength).build();
 
-			getS3Client().putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentLength));
+			s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(inputStream, contentLength));
 
 			logger.info("File uploaded successfully to S3: {}/{}", bucketName, s3Key);
 			return s3Key;

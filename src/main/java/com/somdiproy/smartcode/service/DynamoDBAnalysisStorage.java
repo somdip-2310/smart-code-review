@@ -1,7 +1,6 @@
 package com.somdiproy.smartcode.service;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.*;
 import com.amazonaws.services.dynamodbv2.model.*;
 import com.amazonaws.services.dynamodbv2.util.TableUtils;
@@ -13,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import java.util.Map;
 
 @Service
 public class DynamoDBAnalysisStorage {
@@ -25,17 +23,19 @@ public class DynamoDBAnalysisStorage {
     @Value("${aws.region:us-east-1}")
     private String awsRegion;
     
-    private AmazonDynamoDB dynamoDB;
+    private final AmazonDynamoDB dynamoDB;
     private DynamoDBMapper mapper;
     private ObjectMapper objectMapper;
     
+    // Constructor injection for AmazonDynamoDB
+    public DynamoDBAnalysisStorage(AmazonDynamoDB dynamoDB) {
+        this.dynamoDB = dynamoDB;
+        this.objectMapper = new ObjectMapper();
+    }
+    
     @PostConstruct
     public void init() {
-        this.dynamoDB = AmazonDynamoDBClientBuilder.standard()
-                .withRegion(awsRegion)
-                .build();
         this.mapper = new DynamoDBMapper(dynamoDB);
-        this.objectMapper = new ObjectMapper();
         
         // Create table if it doesn't exist
         createTableIfNotExists();

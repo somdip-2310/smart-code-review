@@ -22,7 +22,7 @@ public class SQSBedrockService {
     @Value("${aws.sqs.queue-name:bedrock-analysis-queue}")
     private String queueName;
     
-    @Value("${aws.sqs.visibility-timeout:300}")
+    @Value("${aws.sqs.visibility-timeout:960}")
     private Integer visibilityTimeout;
     
     @Value("${aws.region:us-east-1}")
@@ -31,17 +31,15 @@ public class SQSBedrockService {
     private AmazonSQS sqs;
     private ObjectMapper objectMapper;
     private String queueUrl;
-    
+
+    public SQSBedrockService(AmazonSQS sqs) {
+        this.sqs = sqs;
+        this.objectMapper = new ObjectMapper();
+    }
+
     @PostConstruct
     public void init() {
-        this.objectMapper = new ObjectMapper();
-        
         try {
-            // Initialize SQS client
-            this.sqs = AmazonSQSClientBuilder.standard()
-                    .withRegion(awsRegion)
-                    .build();
-            
             // Get queue URL or create if doesn't exist
             try {
                 GetQueueUrlResult getQueueUrlResult = sqs.getQueueUrl(queueName);
@@ -65,15 +63,13 @@ public class SQSBedrockService {
             throw new RuntimeException("Failed to initialize SQS service", e);
         }
     }
-    
+
     @PreDestroy
     public void cleanup() {
-        if (sqs != null) {
-            sqs.shutdown();
-            logger.info("SQS client shutdown completed");
-        }
+        logger.info("SQS service cleanup completed");
     }
     
+   
     public String submitAnalysisRequest(String analysisId, String code, String language) {
         try {
             Map<String, Object> message = new HashMap<>();

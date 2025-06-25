@@ -10,5 +10,8 @@ public enum AnalysisStatus {
     PROCESSING,
     COMPLETED,
     FAILED,
-    CANCELLED
+    CANCELLED, 
+    UNKNOWN, 
+    NOT_FOUND, 
+    QUEUED
 }

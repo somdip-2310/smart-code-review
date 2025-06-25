@@ -329,63 +329,73 @@ class SmartCodeReviewApp {
     /**
      * Handle OTP form submission for session verification
      */
-    async handleOtpSubmission(form) {
-        const formData = new FormData(form);
-        const otp = formData.get('otp');
-        const sessionId = formData.get('sessionId') || this.currentSessionId;
-        
-        if (!otp || otp.length !== 6) {
-            this.showToast('Please enter a valid 6-digit code', 'error');
-            return;
-        }
-        
-        this.showLoading('Verifying code...');
-        
-        try {
-            const response = await fetch(`${this.API_BASE}/api/v1/code-review/session/verify`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ sessionId, otp })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Store complete session data including token
-                this.sessionData = {
-                    ...this.sessionData,
-                    ...data,
-                    sessionToken: data.token || data.sessionToken,
-                    expiresAt: data.expiresAt || Date.now() + (7 * 60 * 1000) // 7 minutes from now
-                };
-                this.saveSession(this.sessionData);
-                this.updateSessionUI();
-                this.startSessionTimer();
-                this.closeAllModals();
-                
-                // Call the onSessionVerified method if it exists (for page-specific handling)
-                if (typeof this.onSessionVerified === 'function') {
-                    this.onSessionVerified();
-                }
-                
-                this.trackEvent('session_verified', {
-                    event_category: 'engagement',
-                    event_label: 'otp_verification'
-                });
-                
-                this.showToast('Session verified! You can now analyze your code.', 'success');
-            } else {
-                throw new Error(data.message || 'Invalid verification code');
-            }
-        } catch (error) {
-            console.error('Error verifying OTP:', error);
-            this.showToast(error.message || 'Failed to verify code', 'error');
-        } finally {
-            this.hideLoading();
-        }
-    }
+	async handleOtpSubmission(form) {
+	    const formData = new FormData(form);
+	    const otp = formData.get('otp');
+	    const sessionId = formData.get('sessionId') || this.currentSessionId;
+	    
+	    if (!otp || otp.length !== 6) {
+	        this.showToast('Please enter a valid 6-digit code', 'error');
+	        return;
+	    }
+	    
+	    this.showLoading('Verifying code...');
+	    
+	    try {
+	        const response = await fetch(`${this.API_BASE}/api/v1/code-review/session/verify`, {
+	            method: 'POST',
+	            headers: {
+	                'Content-Type': 'application/json',
+	            },
+	            body: JSON.stringify({ sessionId, otp })
+	        });
+	        
+	        const data = await response.json();
+	        
+	        if (data.success) {
+	            // Store complete session data including token
+	            this.sessionData = {
+	                ...this.sessionData,
+	                ...data,
+	                sessionToken: data.token || data.sessionToken,
+	                expiresAt: data.expiresAt || Date.now() + (7 * 60 * 1000) // 7 minutes from now
+	            };
+	            
+	            // Save session using the existing method
+	            this.saveSession(this.sessionData);
+	            
+	            // ADDED: Store session token in multiple formats for compatibility
+	            const token = this.sessionData.sessionToken || this.sessionData.token;
+	            if (token) {
+	                localStorage.setItem('sessionToken', token);
+	                sessionStorage.setItem('sessionToken', token);
+	            }
+	            
+	            this.updateSessionUI();
+	            this.startSessionTimer();
+	            this.closeAllModals();
+	            
+	            // Call the onSessionVerified method if it exists (for page-specific handling)
+	            if (typeof this.onSessionVerified === 'function') {
+	                this.onSessionVerified();
+	            }
+	            
+	            this.trackEvent('session_verified', {
+	                event_category: 'engagement',
+	                event_label: 'otp_verification'
+	            });
+	            
+	            this.showToast('Session verified! You can now analyze your code.', 'success');
+	        } else {
+	            throw new Error(data.message || 'Invalid verification code');
+	        }
+	    } catch (error) {
+	        console.error('Error verifying OTP:', error);
+	        this.showToast(error.message || 'Failed to verify code', 'error');
+	    } finally {
+	        this.hideLoading();
+	    }
+	}
     
     /**
      * Handle code analysis submission
@@ -1703,3 +1713,15 @@ document.addEventListener('DOMContentLoaded', () => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = SmartCodeReviewApp;
 }
+
+// Initialize app on load
+document.addEventListener('DOMContentLoaded', function() {
+    if (!window.smartCodeReviewApp) {
+        window.smartCodeReviewApp = new SmartCodeReviewApp();
+        // Also set window.app for backward compatibility
+        window.app = window.smartCodeReviewApp;
+    }
+});
+
+// Make SmartCodeReviewApp available globally
+window.SmartCodeReviewApp = SmartCodeReviewApp;

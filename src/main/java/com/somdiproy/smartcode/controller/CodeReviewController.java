@@ -224,27 +224,56 @@ public class CodeReviewController {
             
             // Validate session
             if (!sessionService.isValidSession(sessionToken)) {
+                logger.warn("Invalid session token for analysis request: {}", analysisId);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(AnalysisResponse.builder()
                                 .success(false)
-                                .message("Invalid or expired session")
+                                .message("Session expired. Please start a new analysis.")
+                                .status(AnalysisStatus.FAILED)
+                                .analysisId(analysisId)
                                 .build());
             }
             
+            // Get analysis result
             AnalysisResponse response = codeAnalysisService.getAnalysisResult(analysisId);
             
             if (response == null) {
-                return ResponseEntity.notFound().build();
+                logger.warn("Analysis not found: {}", analysisId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(AnalysisResponse.builder()
+                                .success(false)
+                                .message("Analysis not found")
+                                .status(AnalysisStatus.NOT_FOUND)
+                                .analysisId(analysisId)
+                                .build());
             }
+            
+            // Ensure status is set
+            if (response.getStatus() == null) {
+                response.setStatus(AnalysisStatus.UNKNOWN);
+            }
+            
+            // The success flag should already be set by codeAnalysisService
+            // but if we need to ensure it matches the status:
+            if (response.getStatus() == AnalysisStatus.FAILED || 
+                response.getStatus() == AnalysisStatus.NOT_FOUND) {
+                response.setSuccess(false);
+            }
+            
+            // Log the response status for debugging
+            logger.info("Analysis {} status: {}, success: {}", 
+                       analysisId, response.getStatus(), response.isSuccess());
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            logger.error("Error retrieving analysis", e);
+            logger.error("Error retrieving analysis: {}", analysisId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(AnalysisResponse.builder()
                             .success(false)
-                            .message("Failed to retrieve analysis: " + e.getMessage())
+                            .message("Failed to retrieve analysis")
+                            .status(AnalysisStatus.FAILED)
+                            .analysisId(analysisId)
                             .build());
         }
     }

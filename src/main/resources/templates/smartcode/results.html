@@ -76,65 +76,348 @@
     <!-- Results Page Script -->
     <script th:inline="javascript">
         const analysisId = /*[[${analysisId}]]*/ 'test-id';
+        let pollAttempts = 0;
+        let pollTimeoutId = null;
+        const maxPollInterval = 10000; // Max 10 seconds
+        const maxPollAttempts = 150; // Max 5 minutes of polling (150 * 2s average)
+        
+        // Show immediate loading feedback
+        function showInitialLoading() {
+            document.getElementById('loading-state').innerHTML = `
+                <div class="text-center py-12">
+                    <div class="inline-flex flex-col items-center">
+                        <div class="relative mb-4">
+                            <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200"></div>
+                            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent absolute top-0"></div>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Initializing Application</h3>
+                        <p class="text-gray-500">Please wait while we set up your analysis results...</p>
+                        <div class="mt-4 text-sm text-gray-400">
+                            <span id="init-status">Starting services...</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update status messages during initialization
+        let statusMessages = [
+            'Starting services...',
+            'Loading analysis engine...',
+            'Connecting to servers...',
+            'Almost ready...'
+        ];
+        let statusIndex = 0;
+        let statusIntervalId = null;
+
+        function startStatusAnimation() {
+            statusIntervalId = setInterval(() => {
+                const statusEl = document.getElementById('init-status');
+                if (statusEl) {
+                    statusEl.textContent = statusMessages[statusIndex % statusMessages.length];
+                    statusIndex++;
+                }
+            }, 1500);
+        }
+
+        function stopStatusAnimation() {
+            if (statusIntervalId) {
+                clearInterval(statusIntervalId);
+                statusIntervalId = null;
+            }
+        }
+        
+        // Initialize on page load
+        showInitialLoading();
+        startStatusAnimation();
         
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize app if available
-            if (window.smartCodeReviewApp) {
-                const app = window.smartCodeReviewApp;
+            if (window.smartCodeReviewApp || window.app) {
+                const app = window.smartCodeReviewApp || window.app;
                 
-                // Fetch and display results
-                fetchAnalysisResults();
+                // Stop initialization animation after app loads
+                setTimeout(() => {
+                    stopStatusAnimation();
+                    fetchAnalysisResults();
+                }, 1000);
             } else {
                 console.error('App not initialized');
-                showError('Application not initialized');
+                stopStatusAnimation();
+                showError('Application not initialized. Please refresh the page.');
             }
         });
         
         async function fetchAnalysisResults() {
-            const sessionToken = localStorage.getItem('sessionToken') || 
-                               sessionStorage.getItem('sessionToken');
+            // Check if we've exceeded max attempts
+            if (pollAttempts >= maxPollAttempts) {
+                showError('Analysis is taking longer than expected. Please check back later or contact support.');
+                return;
+            }
+            
+            // Properly retrieve session token from stored session data
+            let sessionToken = null;
+            
+            // Try to get from stored session object first
+            const storedSession = localStorage.getItem('smartcode_session');
+            if (storedSession) {
+                try {
+                    const sessionData = JSON.parse(storedSession);
+                    sessionToken = sessionData.sessionToken || sessionData.token;
+                    
+                    // Check if session is expired
+                    if (sessionData.expiresAt && new Date(sessionData.expiresAt) < new Date()) {
+                        showError('Session expired. Please start a new analysis.');
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error parsing stored session:', e);
+                }
+            }
+            
+            // Fallback to direct token storage (backward compatibility)
+            if (!sessionToken) {
+                sessionToken = localStorage.getItem('sessionToken') || 
+                              sessionStorage.getItem('sessionToken');
+            }
             
             if (!sessionToken) {
-                showError('Session expired. Please start a new analysis.');
+                showError('No active session found. Please start a new analysis.');
                 return;
             }
             
             try {
-                const response = await fetch(`/api/v1/code-review/analysis/${analysisId}?sessionToken=${sessionToken}`);
+                const response = await fetch(`/api/v1/code-review/analysis/${analysisId}?sessionToken=${sessionToken}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                // Handle rate limiting
+                if (response.status === 429) {
+                    const retryAfter = response.headers.get('Retry-After') || '10';
+                    const retryDelay = parseInt(retryAfter) * 1000;
+                    
+                    console.warn(`Rate limited. Retrying after ${retryAfter} seconds...`);
+                    showProcessingState(`Rate limit reached. Retrying in ${retryAfter} seconds...`);
+                    
+                    pollTimeoutId = setTimeout(fetchAnalysisResults, retryDelay);
+                    return;
+                }
+                
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
                     if (data.status === 'COMPLETED') {
+                        stopStatusAnimation();
                         displayResults(data);
-                    } else if (data.status === 'PROCESSING') {
-                        // Poll for results
-                        setTimeout(fetchAnalysisResults, 2000);
+                    } else if (data.status === 'PROCESSING' || data.status === 'QUEUED') {
+                        // Show processing state and continue polling with exponential backoff
+                        showProcessingState();
+                        
+                        // Calculate backoff interval
+                        const baseInterval = 2000; // 2 seconds
+                        const backoffFactor = 1.5;
+                        const jitter = Math.random() * 1000; // 0-1 second jitter
+                        const backoffInterval = Math.min(
+                            baseInterval * Math.pow(backoffFactor, Math.min(pollAttempts, 10)) + jitter,
+                            maxPollInterval
+                        );
+                        
+                        pollAttempts++;
+                        console.log(`Polling attempt ${pollAttempts}, next poll in ${Math.round(backoffInterval)}ms`);
+                        
+                        pollTimeoutId = setTimeout(fetchAnalysisResults, backoffInterval);
                     } else if (data.status === 'FAILED') {
-                        showError(data.message || 'Analysis failed');
+                        stopStatusAnimation();
+                        showError(data.message || 'Analysis failed. Please try again.');
                     }
                 } else {
-                    showError(data.message || 'Failed to retrieve results');
+                    // Handle specific error cases
+                    if (response.status === 401) {
+                        showError('Session expired. Please start a new analysis.');
+                    } else if (response.status === 404) {
+                        showError('Analysis not found. Please check your link and try again.');
+                    } else if (response.status === 500) {
+                        showError('Server error. Please try again later.');
+                    } else {
+                        showError(data.message || 'Failed to retrieve results. Please try again.');
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching results:', error);
-                showError('Network error. Please check your connection.');
+                
+                // Provide more specific error messages
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    // Network error - retry with backoff
+                    if (pollAttempts < 5) {
+                        pollAttempts++;
+                        showProcessingState('Connection interrupted. Retrying...');
+                        pollTimeoutId = setTimeout(fetchAnalysisResults, 3000);
+                    } else {
+                        showError('Network error. Please check your internet connection and refresh the page.');
+                    }
+                } else if (error.name === 'SyntaxError') {
+                    showError('Invalid response from server. Please refresh the page.');
+                } else {
+                    showError('An unexpected error occurred. Please refresh the page and try again.');
+                }
+            }
+        }
+
+        // Show processing state with optional message
+        function showProcessingState(message = null) {
+            const loadingState = document.getElementById('loading-state');
+            if (loadingState) {
+                loadingState.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="inline-flex flex-col items-center">
+                            <div class="relative mb-4">
+                                <svg class="animate-spin h-12 w-12 text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-2">Processing Your Code</h3>
+                            <p class="text-gray-600">${message || 'Our AI is analyzing your code...'}</p>
+                            <div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+                                <div class="text-center">
+                                    <div class="text-2xl mb-1">🔍</div>
+                                    <div>Scanning</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl mb-1">🤖</div>
+                                    <div>Analyzing</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-2xl mb-1">📊</div>
+                                    <div>Generating</div>
+                                </div>
+                            </div>
+                            <p class="mt-4 text-sm text-gray-500">
+                                ${pollAttempts > 10 ? 'This is taking longer than usual...' : 'This may take a few moments...'}
+                            </p>
+                            ${pollAttempts > 20 ? '<p class="mt-2 text-xs text-gray-400">Large files may take up to 5 minutes to analyze.</p>' : ''}
+                        </div>
+                    </div>
+                `;
             }
         }
         
         function displayResults(data) {
+            // Clear any pending timeouts
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+                pollTimeoutId = null;
+            }
+            
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('results-container').classList.remove('hidden');
             
-            if (window.smartCodeReviewApp) {
-                window.smartCodeReviewApp.displayAnalysisResults(data);
+            const app = window.smartCodeReviewApp || window.app;
+            
+            if (app && typeof app.displayAnalysisResults === 'function') {
+                app.displayAnalysisResults(data);
+            } else {
+                // Fallback: Display basic results if app not available
+                console.warn('App not available, using fallback display');
+                displayResultsFallback(data);
             }
+        }
+
+        // Fallback function to display results if main app fails
+        function displayResultsFallback(data) {
+            const container = document.getElementById('results-container');
+            if (!container || !data.result) return;
+            
+            const result = data.result;
+            const scoreClass = result.overallScore >= 8 ? 'green' : 
+                              result.overallScore >= 6 ? 'yellow' : 'red';
+            
+            container.innerHTML = `
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="text-center mb-6">
+                        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-${scoreClass}-100 text-${scoreClass}-600 text-3xl font-bold mb-4">
+                            ${result.overallScore ? result.overallScore.toFixed(1) : 'N/A'}
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900">Analysis Complete</h2>
+                        <p class="text-gray-600 mt-2">${result.summary || 'Your code has been analyzed.'}</p>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold text-red-600">🔒 Security</h3>
+                            <p class="text-2xl font-bold">${result.security?.securityScore?.toFixed(1) || 'N/A'}</p>
+                            <p class="text-sm text-gray-600">${result.security?.hasSecurityIssues ? 'Issues found' : 'No issues'}</p>
+                        </div>
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold text-blue-600">⚡ Performance</h3>
+                            <p class="text-2xl font-bold">${result.performance?.performanceScore?.toFixed(1) || 'N/A'}</p>
+                            <p class="text-sm text-gray-600">${result.performance?.complexity || 'Unknown'} complexity</p>
+                        </div>
+                        <div class="text-center p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold text-green-600">📊 Quality</h3>
+                            <p class="text-2xl font-bold">${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}</p>
+                            <p class="text-sm text-gray-600">${result.quality?.linesOfCode || 0} lines</p>
+                        </div>
+                    </div>
+                    
+                    ${result.issues && result.issues.length > 0 ? `
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold mb-3">Issues Found (${result.issues.length})</h3>
+                            <div class="space-y-2 max-h-64 overflow-y-auto">
+                                ${result.issues.slice(0, 5).map(issue => `
+                                    <div class="p-3 bg-gray-50 rounded-lg">
+                                        <div class="flex items-start">
+                                            <span class="text-sm font-medium text-${
+                                                issue.severity === 'HIGH' ? 'red' :
+                                                issue.severity === 'MEDIUM' ? 'yellow' : 'blue'
+                                            }-600">${issue.severity}</span>
+                                            <p class="ml-3 text-sm text-gray-700">${issue.description}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                ${result.issues.length > 5 ? `
+                                    <p class="text-sm text-gray-500 text-center">And ${result.issues.length - 5} more issues...</p>
+                                ` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="text-center">
+                        <a href="/upload" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Analyze Another File
+                        </a>
+                    </div>
+                </div>
+            `;
         }
         
         function showError(message) {
+            // Clear any pending timeouts
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+                pollTimeoutId = null;
+            }
+            
+            stopStatusAnimation();
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('error-state').classList.remove('hidden');
             document.getElementById('error-message').textContent = message;
         }
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (pollTimeoutId) {
+                clearTimeout(pollTimeoutId);
+            }
+            stopStatusAnimation();
+        });
     </script>
     
     <!-- Google Analytics -->

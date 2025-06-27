@@ -72,6 +72,39 @@ public class BedrockService {
     }
     
     /**
+     * Submit code for analysis with existing analysis ID
+     * This method reuses an existing analysis ID instead of creating a new one
+     */
+    public void submitAnalysisWithId(String analysisId, String code, String language) {
+        try {
+            logger.info("Submitting analysis {} for {} code (length: {})", 
+                       analysisId, language, code.length());
+            
+            // Validate input
+            if (code == null || code.trim().isEmpty()) {
+                dynamoDBStorage.saveAnalysisStatus(analysisId, "FAILED", "Code content is empty");
+                return;
+            }
+            
+            if (language == null || language.trim().isEmpty()) {
+                language = "unknown";
+            }
+            
+            // Store initial status in DynamoDB  
+            dynamoDBStorage.saveAnalysisStatus(analysisId, "QUEUED", "Analysis queued for processing");
+            
+            // Submit to SQS for async processing
+            String messageId = sqsService.submitAnalysisRequest(analysisId, code, language);
+            
+            logger.info("Analysis {} submitted to queue with message ID: {}", analysisId, messageId);
+            
+        } catch (Exception e) {
+            logger.error("Error submitting analysis", e);
+            dynamoDBStorage.saveAnalysisStatus(analysisId, "FAILED", e.getMessage());
+        }
+    }
+    
+    /**
      * Get analysis result by ID
      */
     public CodeReviewResult getAnalysisResult(String analysisId) {

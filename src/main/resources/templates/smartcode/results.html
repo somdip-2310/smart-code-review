@@ -34,19 +34,12 @@
                 
                 <!-- Loading State -->
                 <div id="loading-state" class="text-center py-12">
-                    <div class="inline-flex items-center justify-center">
-                        <svg class="animate-spin h-8 w-8 text-blue-600 mr-3" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span class="text-xl text-gray-700">Loading analysis results...</span>
-                    </div>
-                    <p class="text-gray-500 mt-4">This may take a few moments</p>
+                    <!-- Dynamic content will be inserted here -->
                 </div>
                 
                 <!-- Results Container (Hidden initially) -->
                 <div id="results-container" class="hidden">
-                    <!-- Results will be dynamically inserted here -->
+                    <!-- Results will be dynamically inserted by app.js -->
                 </div>
                 
                 <!-- Error State (Hidden initially) -->
@@ -78,109 +71,47 @@
         const analysisId = /*[[${analysisId}]]*/ 'test-id';
         let pollAttempts = 0;
         let pollTimeoutId = null;
+        let codeLength = 0;
         const maxPollInterval = 10000; // Max 10 seconds
-        const maxPollAttempts = 150; // Max 5 minutes of polling (150 * 2s average)
+        const maxPollAttempts = 150; // Max 5 minutes of polling
         
-        // Show immediate loading feedback
-        function showInitialLoading() {
-            document.getElementById('loading-state').innerHTML = `
-                <div class="text-center py-12">
-                    <div class="inline-flex flex-col items-center">
-                        <div class="relative mb-4">
-                            <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200"></div>
-                            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent absolute top-0"></div>
-                        </div>
-                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Initializing Application</h3>
-                        <p class="text-gray-500">Please wait while we set up your analysis results...</p>
-                        <div class="mt-4 text-sm text-gray-400">
-                            <span id="init-status">Starting services...</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Update status messages during initialization
-        let statusMessages = [
-            'Starting services...',
-            'Loading analysis engine...',
-            'Connecting to servers...',
-            'Almost ready...'
+        // Progress stages for visualization
+        const progressStages = [
+            { icon: '🔍', label: 'Scanning', percent: 25, message: 'Analyzing code structure...' },
+            { icon: '🤖', label: 'Analyzing', percent: 50, message: 'AI is reviewing your code...' },
+            { icon: '📊', label: 'Generating', percent: 75, message: 'Creating detailed report...' },
+            { icon: '✅', label: 'Finalizing', percent: 90, message: 'Almost done...' }
         ];
-        let statusIndex = 0;
-        let statusIntervalId = null;
-
-        function startStatusAnimation() {
-            statusIntervalId = setInterval(() => {
-                const statusEl = document.getElementById('init-status');
-                if (statusEl) {
-                    statusEl.textContent = statusMessages[statusIndex % statusMessages.length];
-                    statusIndex++;
-                }
-            }, 1500);
-        }
-
-        function stopStatusAnimation() {
-            if (statusIntervalId) {
-                clearInterval(statusIntervalId);
-                statusIntervalId = null;
-            }
-        }
+        
+        // Fun facts to display during processing
+        const funFacts = [
+            'Our AI analyzes over 100 code patterns per second!',
+            'We check for security vulnerabilities in real-time.',
+            'Code quality metrics are based on industry best practices.',
+            'Our AI has reviewed millions of lines of code.',
+            'We support over 20 programming languages.'
+        ];
         
         // Initialize on page load
-        showInitialLoading();
-        startStatusAnimation();
-        
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize app if available
-            if (window.smartCodeReviewApp || window.app) {
-                const app = window.smartCodeReviewApp || window.app;
-                
-                // Stop initialization animation after app loads
-                setTimeout(() => {
-                    stopStatusAnimation();
-                    fetchAnalysisResults();
-                }, 1000);
-            } else {
-                console.error('App not initialized');
-                stopStatusAnimation();
-                showError('Application not initialized. Please refresh the page.');
-            }
+            // Show initial loading state
+            showProcessingState('Initializing analysis...', 0);
+            
+            // Start fetching results after a short delay
+            setTimeout(() => {
+                fetchAnalysisResults();
+            }, 500);
         });
         
         async function fetchAnalysisResults() {
-            // Check if we've exceeded max attempts
+            // Check max attempts
             if (pollAttempts >= maxPollAttempts) {
-                showError('Analysis is taking longer than expected. Please check back later or contact support.');
+                showError('Analysis is taking longer than expected. Please check back later.');
                 return;
             }
             
-            // Properly retrieve session token from stored session data
-            let sessionToken = null;
-            
-            // Try to get from stored session object first
-            const storedSession = localStorage.getItem('smartcode_session');
-            if (storedSession) {
-                try {
-                    const sessionData = JSON.parse(storedSession);
-                    sessionToken = sessionData.sessionToken || sessionData.token;
-                    
-                    // Check if session is expired
-                    if (sessionData.expiresAt && new Date(sessionData.expiresAt) < new Date()) {
-                        showError('Session expired. Please start a new analysis.');
-                        return;
-                    }
-                } catch (e) {
-                    console.error('Error parsing stored session:', e);
-                }
-            }
-            
-            // Fallback to direct token storage (backward compatibility)
-            if (!sessionToken) {
-                sessionToken = localStorage.getItem('sessionToken') || 
-                              sessionStorage.getItem('sessionToken');
-            }
-            
+            // Get session token
+            const sessionToken = getSessionToken();
             if (!sessionToken) {
                 showError('No active session found. Please start a new analysis.');
                 return;
@@ -198,112 +129,204 @@
                 // Handle rate limiting
                 if (response.status === 429) {
                     const retryAfter = response.headers.get('Retry-After') || '10';
-                    const retryDelay = parseInt(retryAfter) * 1000;
-                    
-                    console.warn(`Rate limited. Retrying after ${retryAfter} seconds...`);
-                    showProcessingState(`Rate limit reached. Retrying in ${retryAfter} seconds...`);
-                    
-                    pollTimeoutId = setTimeout(fetchAnalysisResults, retryDelay);
+                    handleRateLimit(parseInt(retryAfter));
                     return;
                 }
                 
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    if (data.status === 'COMPLETED') {
-                        stopStatusAnimation();
-                        displayResults(data);
-                    } else if (data.status === 'PROCESSING' || data.status === 'QUEUED') {
-                        // Show processing state and continue polling with exponential backoff
-                        showProcessingState();
-                        
-                        // Calculate backoff interval
-                        const baseInterval = 2000; // 2 seconds
-                        const backoffFactor = 1.5;
-                        const jitter = Math.random() * 1000; // 0-1 second jitter
-                        const backoffInterval = Math.min(
-                            baseInterval * Math.pow(backoffFactor, Math.min(pollAttempts, 10)) + jitter,
-                            maxPollInterval
-                        );
-                        
-                        pollAttempts++;
-                        console.log(`Polling attempt ${pollAttempts}, next poll in ${Math.round(backoffInterval)}ms`);
-                        
-                        pollTimeoutId = setTimeout(fetchAnalysisResults, backoffInterval);
-                    } else if (data.status === 'FAILED') {
-                        stopStatusAnimation();
-                        showError(data.message || 'Analysis failed. Please try again.');
+                    // Extract code length if available
+                    if (data.result?.metadata?.codeLength) {
+                        codeLength = data.result.metadata.codeLength;
+                    }
+                    
+                    switch (data.status) {
+                        case 'COMPLETED':
+                            displayResults(data);
+                            break;
+                        case 'PROCESSING':
+                        case 'QUEUED':
+                            showProcessingState(data.message, codeLength);
+                            scheduleNextPoll();
+                            break;
+                        case 'FAILED':
+                            showError(data.message || 'Analysis failed. Please try again.');
+                            break;
+                        default:
+                            showProcessingState('Processing...', codeLength);
+                            scheduleNextPoll();
                     }
                 } else {
-                    // Handle specific error cases
-                    if (response.status === 401) {
-                        showError('Session expired. Please start a new analysis.');
-                    } else if (response.status === 404) {
-                        showError('Analysis not found. Please check your link and try again.');
-                    } else if (response.status === 500) {
-                        showError('Server error. Please try again later.');
-                    } else {
-                        showError(data.message || 'Failed to retrieve results. Please try again.');
-                    }
+                    handleErrorResponse(response, data);
                 }
             } catch (error) {
-                console.error('Error fetching results:', error);
-                
-                // Provide more specific error messages
-                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-                    // Network error - retry with backoff
-                    if (pollAttempts < 5) {
-                        pollAttempts++;
-                        showProcessingState('Connection interrupted. Retrying...');
-                        pollTimeoutId = setTimeout(fetchAnalysisResults, 3000);
-                    } else {
-                        showError('Network error. Please check your internet connection and refresh the page.');
-                    }
-                } else if (error.name === 'SyntaxError') {
-                    showError('Invalid response from server. Please refresh the page.');
-                } else {
-                    showError('An unexpected error occurred. Please refresh the page and try again.');
-                }
+                handleNetworkError(error);
             }
         }
-
-        // Show processing state with optional message
-        function showProcessingState(message = null) {
+        
+        function getSessionToken() {
+            // Try to get from app instance first
+            const app = window.smartCodeReviewApp || window.app;
+            if (app && app.sessionData) {
+                return app.sessionData.sessionToken || app.sessionData.token;
+            }
+            
+            // Try stored session
+            const storedSession = localStorage.getItem('smartcode_session');
+            if (storedSession) {
+                try {
+                    const sessionData = JSON.parse(storedSession);
+                    
+                    // Check expiration
+                    if (sessionData.expiresAt && new Date(sessionData.expiresAt) < new Date()) {
+                        return null;
+                    }
+                    
+                    return sessionData.sessionToken || sessionData.token;
+                } catch (e) {
+                    console.error('Error parsing session:', e);
+                }
+            }
+            
+            // Fallback to direct storage
+            return localStorage.getItem('sessionToken') || sessionStorage.getItem('sessionToken');
+        }
+        
+        function scheduleNextPoll() {
+            // Exponential backoff with jitter
+            const baseInterval = 2000;
+            const backoffFactor = 1.5;
+            const jitter = Math.random() * 1000;
+            const backoffInterval = Math.min(
+                baseInterval * Math.pow(backoffFactor, Math.min(pollAttempts, 10)) + jitter,
+                maxPollInterval
+            );
+            
+            pollAttempts++;
+            pollTimeoutId = setTimeout(fetchAnalysisResults, backoffInterval);
+        }
+        
+        function showProcessingState(message = null, codeLength = 0) {
             const loadingState = document.getElementById('loading-state');
-            if (loadingState) {
-                loadingState.innerHTML = `
-                    <div class="text-center py-12">
-                        <div class="inline-flex flex-col items-center">
-                            <div class="relative mb-4">
-                                <svg class="animate-spin h-12 w-12 text-blue-600" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
+            if (!loadingState) return;
+            
+            // Calculate estimated time
+            const estimatedSeconds = Math.max(30, Math.min(300, Math.ceil(codeLength / 1000) * 2));
+            const estimatedMinutes = Math.ceil(estimatedSeconds / 60);
+            
+            // Determine current stage
+            const stageIndex = Math.min(
+                Math.floor((pollAttempts / 30) * progressStages.length),
+                progressStages.length - 1
+            );
+            const currentStage = progressStages[stageIndex];
+            
+            // Get random fun fact
+            const funFact = funFacts[Math.floor(Math.random() * funFacts.length)];
+            
+            // Calculate progress percentage
+            const progressPercent = Math.min(95, Math.max(
+                currentStage.percent,
+                (pollAttempts / maxPollAttempts) * 100
+            ));
+            
+            loadingState.innerHTML = `
+                <div class="max-w-2xl mx-auto">
+                    <!-- Main Animation -->
+                    <div class="flex justify-center mb-8">
+                        <div class="relative">
+                            <div class="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl animate-pulse">
+                                <span class="text-white text-4xl">${currentStage.icon}</span>
                             </div>
-                            <h3 class="text-xl font-semibold text-gray-700 mb-2">Processing Your Code</h3>
-                            <p class="text-gray-600">${message || 'Our AI is analyzing your code...'}</p>
-                            <div class="mt-4 grid grid-cols-3 gap-4 text-sm">
-                                <div class="text-center">
-                                    <div class="text-2xl mb-1">🔍</div>
-                                    <div>Scanning</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-2xl mb-1">🤖</div>
-                                    <div>Analyzing</div>
-                                </div>
-                                <div class="text-center">
-                                    <div class="text-2xl mb-1">📊</div>
-                                    <div>Generating</div>
-                                </div>
+                            <div class="absolute -top-2 -right-2">
+                                <span class="relative flex h-5 w-5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-5 w-5 bg-green-500"></span>
+                                </span>
                             </div>
-                            <p class="mt-4 text-sm text-gray-500">
-                                ${pollAttempts > 10 ? 'This is taking longer than usual...' : 'This may take a few moments...'}
-                            </p>
-                            ${pollAttempts > 20 ? '<p class="mt-2 text-xs text-gray-400">Large files may take up to 5 minutes to analyze.</p>' : ''}
                         </div>
                     </div>
-                `;
-            }
+                    
+                    <!-- Status Text -->
+                    <h3 class="text-2xl font-bold text-gray-800 mb-2 text-center">
+                        ${currentStage.label} Your Code
+                    </h3>
+                    <p class="text-gray-600 text-center mb-8">
+                        ${message || currentStage.message}
+                    </p>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mb-8">
+                        <div class="flex justify-between text-sm text-gray-600 mb-2">
+                            <span>Progress</span>
+                            <span>${Math.round(progressPercent)}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-1000 ease-out"
+                                 style="width: ${progressPercent}%">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stage Indicators -->
+                    <div class="grid grid-cols-4 gap-4 mb-8">
+                        ${progressStages.map((stage, index) => `
+                            <div class="text-center transition-all duration-500 ${index <= stageIndex ? 'opacity-100 transform scale-100' : 'opacity-40 transform scale-90'}">
+                                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full ${index <= stageIndex ? 'bg-blue-100' : 'bg-gray-100'} mb-2">
+                                    <span class="text-xl ${index === stageIndex ? 'animate-bounce' : ''}">${stage.icon}</span>
+                                </div>
+                                <div class="text-xs font-medium ${index <= stageIndex ? 'text-blue-600' : 'text-gray-400'}">
+                                    ${stage.label}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <!-- Info Cards -->
+                    <div class="grid md:grid-cols-2 gap-4 mb-6">
+                        ${codeLength > 0 ? `
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="text-sm font-medium text-blue-800">Code Size</p>
+                                        <p class="text-xs text-blue-600">${codeLength.toLocaleString()} characters</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="bg-indigo-50 rounded-lg p-4">
+                            <div class="flex items-center">
+                                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div>
+                                    <p class="text-sm font-medium text-indigo-800">Estimated Time</p>
+                                    <p class="text-xs text-indigo-600">${estimatedMinutes} minute${estimatedMinutes > 1 ? 's' : ''} remaining</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Fun Fact -->
+                    <div class="text-center">
+                        <p class="text-sm text-gray-500 italic">
+                            💡 ${funFact}
+                        </p>
+                    </div>
+                    
+                    ${pollAttempts > 60 ? `
+                        <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p class="text-sm text-yellow-800 text-center">
+                                ⏳ This is taking longer than usual. Large or complex files may need extra processing time.
+                            </p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
         }
         
         function displayResults(data) {
@@ -313,89 +336,18 @@
                 pollTimeoutId = null;
             }
             
+            // Hide loading, show results
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('results-container').classList.remove('hidden');
             
+            // Use app's display function
             const app = window.smartCodeReviewApp || window.app;
-            
             if (app && typeof app.displayAnalysisResults === 'function') {
                 app.displayAnalysisResults(data);
             } else {
-                // Fallback: Display basic results if app not available
-                console.warn('App not available, using fallback display');
-                displayResultsFallback(data);
+                console.error('App display function not available');
+                showError('Unable to display results. Please refresh the page.');
             }
-        }
-
-        // Fallback function to display results if main app fails
-        function displayResultsFallback(data) {
-            const container = document.getElementById('results-container');
-            if (!container || !data.result) return;
-            
-            const result = data.result;
-            const scoreClass = result.overallScore >= 8 ? 'green' : 
-                              result.overallScore >= 6 ? 'yellow' : 'red';
-            
-            container.innerHTML = `
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <div class="text-center mb-6">
-                        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-${scoreClass}-100 text-${scoreClass}-600 text-3xl font-bold mb-4">
-                            ${result.overallScore ? result.overallScore.toFixed(1) : 'N/A'}
-                        </div>
-                        <h2 class="text-2xl font-bold text-gray-900">Analysis Complete</h2>
-                        <p class="text-gray-600 mt-2">${result.summary || 'Your code has been analyzed.'}</p>
-                    </div>
-                    
-                    <div class="grid md:grid-cols-3 gap-4 mb-6">
-                        <div class="text-center p-4 bg-gray-50 rounded-lg">
-                            <h3 class="font-semibold text-red-600">🔒 Security</h3>
-                            <p class="text-2xl font-bold">${result.security?.securityScore?.toFixed(1) || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">${result.security?.hasSecurityIssues ? 'Issues found' : 'No issues'}</p>
-                        </div>
-                        <div class="text-center p-4 bg-gray-50 rounded-lg">
-                            <h3 class="font-semibold text-blue-600">⚡ Performance</h3>
-                            <p class="text-2xl font-bold">${result.performance?.performanceScore?.toFixed(1) || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">${result.performance?.complexity || 'Unknown'} complexity</p>
-                        </div>
-                        <div class="text-center p-4 bg-gray-50 rounded-lg">
-                            <h3 class="font-semibold text-green-600">📊 Quality</h3>
-                            <p class="text-2xl font-bold">${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}</p>
-                            <p class="text-sm text-gray-600">${result.quality?.linesOfCode || 0} lines</p>
-                        </div>
-                    </div>
-                    
-                    ${result.issues && result.issues.length > 0 ? `
-                        <div class="mb-6">
-                            <h3 class="text-lg font-semibold mb-3">Issues Found (${result.issues.length})</h3>
-                            <div class="space-y-2 max-h-64 overflow-y-auto">
-                                ${result.issues.slice(0, 5).map(issue => `
-                                    <div class="p-3 bg-gray-50 rounded-lg">
-                                        <div class="flex items-start">
-                                            <span class="text-sm font-medium text-${
-                                                issue.severity === 'HIGH' ? 'red' :
-                                                issue.severity === 'MEDIUM' ? 'yellow' : 'blue'
-                                            }-600">${issue.severity}</span>
-                                            <p class="ml-3 text-sm text-gray-700">${issue.description}</p>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                                ${result.issues.length > 5 ? `
-                                    <p class="text-sm text-gray-500 text-center">And ${result.issues.length - 5} more issues...</p>
-                                ` : ''}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <div class="text-center">
-                        <a href="/upload" class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                            </svg>
-                            Analyze Another File
-                        </a>
-                    </div>
-                </div>
-            `;
         }
         
         function showError(message) {
@@ -405,10 +357,37 @@
                 pollTimeoutId = null;
             }
             
-            stopStatusAnimation();
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('error-state').classList.remove('hidden');
             document.getElementById('error-message').textContent = message;
+        }
+        
+        function handleRateLimit(retryAfter) {
+            showProcessingState(`Rate limit reached. Retrying in ${retryAfter} seconds...`, codeLength);
+            pollTimeoutId = setTimeout(fetchAnalysisResults, retryAfter * 1000);
+        }
+        
+        function handleErrorResponse(response, data) {
+            const errorMessages = {
+                401: 'Session expired. Please start a new analysis.',
+                404: 'Analysis not found. Please check your link.',
+                500: 'Server error. Please try again later.',
+                503: 'Service temporarily unavailable. Please try again.'
+            };
+            
+            showError(errorMessages[response.status] || data.message || 'Failed to retrieve results.');
+        }
+        
+        function handleNetworkError(error) {
+            console.error('Network error:', error);
+            
+            if (pollAttempts < 5) {
+                pollAttempts++;
+                showProcessingState('Connection interrupted. Retrying...', codeLength);
+                pollTimeoutId = setTimeout(fetchAnalysisResults, 3000);
+            } else {
+                showError('Network error. Please check your connection and refresh the page.');
+            }
         }
         
         // Cleanup on page unload
@@ -416,7 +395,6 @@
             if (pollTimeoutId) {
                 clearTimeout(pollTimeoutId);
             }
-            stopStatusAnimation();
         });
     </script>
     

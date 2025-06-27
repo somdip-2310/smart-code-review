@@ -6,6 +6,9 @@ import com.amazonaws.services.dynamodbv2.model.*;
 import com.amazonaws.services.dynamodbv2.util.TableUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.somdiproy.smartcode.dto.CodeReviewResult;
+
+import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -134,6 +137,28 @@ public class DynamoDBAnalysisStorage {
             
             mapper.save(record);
             logger.debug("Saved analysis status: {} - {}", analysisId, status);
+            
+        } catch (Exception e) {
+            logger.error("Error saving analysis status", e);
+            throw new RuntimeException("Failed to save analysis status", e);
+        }
+    }
+    
+    public void saveAnalysisStatusWithMetadata(String analysisId, String status, String message, Map<String, Object> metadata) {
+        try {
+            AnalysisRecord record = new AnalysisRecord();
+            record.setAnalysisId(analysisId);
+            record.setStatus(status);
+            record.setMessage(message);
+            record.setTimestamp(System.currentTimeMillis());
+            record.setTtl(System.currentTimeMillis() / 1000 + 604800); // 7 days TTL
+            
+            if (metadata != null) {
+                record.setResultJson(objectMapper.writeValueAsString(metadata));
+            }
+            
+            mapper.save(record);
+            logger.debug("Saved analysis status with metadata: {} - {}", analysisId, status);
             
         } catch (Exception e) {
             logger.error("Error saving analysis status", e);

@@ -313,6 +313,7 @@ public class CodeAnalysisService {
             current.setSuccess(false);
             current.setStatus(AnalysisStatus.FAILED);
             current.setMessage("Analysis failed: " + errorMessage);
+            dynamoDBStorage.saveAnalysisStatus(analysisId, "FAILED", errorMessage);
             current.setUpdatedAt(System.currentTimeMillis());
             analysisStorageService.storeAnalysis(analysisId, current);
         }

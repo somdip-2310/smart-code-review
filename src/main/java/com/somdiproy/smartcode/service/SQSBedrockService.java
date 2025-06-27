@@ -80,31 +80,40 @@ public class SQSBedrockService {
             message.put("language", language);
             message.put("timestamp", System.currentTimeMillis());
             
-            // For large code, store in S3 and pass reference
-            if (code.length() > 256000) { // SQS message size limit is 256KB
-                logger.info("Code too large for SQS, storing in S3 first");
+            // Calculate message size (rough estimate including JSON overhead)
+            int estimatedMessageSize = code.length() + 1000; // 1KB for metadata
+            
+            // Check if message would exceed SQS limit (256KB = 262144 bytes)
+            // Use 250KB as safe threshold to account for encoding overhead
+            if (estimatedMessageSize > 250000) {
+                logger.info("Code too large for SQS ({} chars), storing in S3 first", code.length());
                 
                 // Generate consistent S3 key
                 String s3Key = String.format("analysis/%s/code.txt", analysisId);
                 
-                // Store code in S3
+                // Store code in S3 - DO NOT fallback to inline for large files
                 try {
                     s3Service.uploadCodeContent(code, s3Key, analysisId);
                     message.put("codeLocation", "s3");
                     message.put("s3Key", s3Key);
+                    // Don't include the code in the message when using S3
                     logger.info("Code stored in S3 with key: {}", s3Key);
                 } catch (Exception e) {
-                    logger.error("Failed to upload code to S3, falling back to inline", e);
-                    // Fallback: try to send inline if S3 fails
-                    message.put("code", code);
-                    message.put("codeLocation", "inline");
+                    logger.error("Failed to upload code to S3 for analysis {}: {}", analysisId, e.getMessage(), e);
+                    // For large files, we cannot fallback to inline - it will fail
+                    throw new RuntimeException("Code too large for inline processing and S3 upload failed", e);
                 }
             } else {
+                // Small enough to send inline
                 message.put("code", code);
                 message.put("codeLocation", "inline");
+                logger.info("Sending code inline ({} chars)", code.length());
             }
             
             String messageBody = objectMapper.writeValueAsString(message);
+            
+            // Log actual message size for debugging
+            logger.info("SQS message size: {} bytes for analysis {}", messageBody.getBytes().length, analysisId);
             
             SendMessageRequest sendRequest = new SendMessageRequest()
                 .withQueueUrl(queueUrl)

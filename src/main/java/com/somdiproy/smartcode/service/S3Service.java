@@ -89,7 +89,8 @@ public class S3Service {
 	
 	public String uploadCodeContent(String content, String s3Key, String analysisId) {
 	    try {
-	        logger.info("Uploading code content to S3: {}/{}", bucketName, s3Key);
+	        logger.info("Uploading code content to S3: bucket={}, key={}, size={} bytes", 
+	                    bucketName, s3Key, content.length());
 	        
 	        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
 	        
@@ -104,15 +105,15 @@ public class S3Service {
 	                ))
 	                .build();
 	        
-	        s3Client.putObject(putObjectRequest, 
-	                RequestBody.fromBytes(contentBytes));
+	        s3Client.putObject(putObjectRequest, RequestBody.fromBytes(contentBytes));
 	        
 	        logger.info("Code content uploaded successfully to S3: {}/{}", bucketName, s3Key);
 	        return s3Key;
 	        
 	    } catch (Exception e) {
-	        logger.error("Error uploading code content to S3", e);
-	        throw new RuntimeException("Failed to upload code content to S3", e);
+	        logger.error("Error uploading code content to S3 - bucket: {}, key: {}, error: {}", 
+	                     bucketName, s3Key, e.getMessage(), e);
+	        throw new RuntimeException("Failed to upload code content to S3: " + e.getMessage(), e);
 	    }
 	}
 }

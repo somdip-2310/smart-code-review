@@ -16,6 +16,8 @@ import java.util.zip.ZipInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import org.springframework.beans.factory.annotation.Autowired;
+
 
 /**
  * Code Analysis Service
@@ -41,6 +43,10 @@ public class CodeAnalysisService {
     
     @Autowired
     private AnalysisStorageService analysisStorageService;
+    
+  //Add field
+    @Autowired
+    private DynamoDBAnalysisStorage dynamoDBStorage;
     
     /**
      * Analyze uploaded ZIP file
@@ -219,18 +225,90 @@ public class CodeAnalysisService {
      * Get analysis result by ID
      */
     public AnalysisResponse getAnalysisResult(String analysisId) {
-        AnalysisResponse response = analysisStorageService.getAnalysis(analysisId);
-        
-        if (response == null) {
-            return AnalysisResponse.builder()
+        try {
+            // First check in-memory storage
+            AnalysisResponse response = analysisStorageService.getAnalysis(analysisId);
+            
+            // Always check DynamoDB for updates
+            logger.debug("Checking DynamoDB for analysis: {}", analysisId);
+            
+            DynamoDBAnalysisStorage.AnalysisRecord record = 
+                dynamoDBStorage.getAnalysis(analysisId);
+            
+            if (record != null) {
+                logger.info("Found in DynamoDB: {} - Status: {}", 
+                    analysisId, record.getStatus());
+                
+                // Create or update response based on DynamoDB record
+                AnalysisResponse.AnalysisResponseBuilder builder = 
+                    AnalysisResponse.builder()
+                        .analysisId(analysisId)
+                        .createdAt(record.getTimestamp())
+                        .updatedAt(record.getTimestamp());
+                
+                switch (record.getStatus()) {
+                    case "COMPLETED":
+                        builder.success(true)
+                               .status(AnalysisStatus.COMPLETED)
+                               .message("Analysis completed successfully")
+                               .result(record.getResult())
+                               .progressPercentage(100);
+                        break;
+                    case "FAILED":
+                        builder.success(false)
+                               .status(AnalysisStatus.FAILED)
+                               .message(record.getMessage() != null ? 
+                                   record.getMessage() : "Analysis failed")
+                               .progressPercentage(0);
+                        break;
+                    case "PROCESSING":
+                        builder.success(true)
+                               .status(AnalysisStatus.PROCESSING)
+                               .message("Lambda is processing your code...")
+                               .progressPercentage(50);
+                        break;
+                    case "QUEUED":
+                        builder.success(true)
+                               .status(AnalysisStatus.PROCESSING)
+                               .message("Analysis queued for processing")
+                               .progressPercentage(25);
+                        break;
+                    default:
+                        builder.success(true)
+                               .status(AnalysisStatus.PROCESSING)
+                               .message("Processing...")
+                               .progressPercentage(30);
+                }
+                
+                response = builder.build();
+                
+                // Update in-memory cache if completed or failed
+                if (response.getStatus() == AnalysisStatus.COMPLETED || 
+                    response.getStatus() == AnalysisStatus.FAILED) {
+                    analysisStorageService.storeAnalysis(analysisId, response);
+                }
+            } else if (response == null) {
+                // Not found anywhere
+                logger.warn("Analysis not found: {}", analysisId);
+                return AnalysisResponse.builder()
                     .success(false)
                     .analysisId(analysisId)
                     .status(AnalysisStatus.FAILED)
                     .message("Analysis not found")
                     .build();
+            }
+            
+            return response;
+            
+        } catch (Exception e) {
+            logger.error("Error retrieving analysis result", e);
+            return AnalysisResponse.builder()
+                .success(false)
+                .analysisId(analysisId)
+                .status(AnalysisStatus.FAILED)
+                .message("Error retrieving analysis: " + e.getMessage())
+                .build();
         }
-        
-        return response;
     }
     
     /**

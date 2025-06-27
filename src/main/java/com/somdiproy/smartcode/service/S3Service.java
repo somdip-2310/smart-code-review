@@ -13,8 +13,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 @Service
 public class S3Service {
@@ -83,5 +85,34 @@ public class S3Service {
 			logger.error("Error uploading file to S3", e);
 			throw new RuntimeException("Failed to upload file to S3", e);
 		}
+	}
+	
+	public String uploadCodeContent(String content, String s3Key, String analysisId) {
+	    try {
+	        logger.info("Uploading code content to S3: {}/{}", bucketName, s3Key);
+	        
+	        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+	        
+	        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+	                .bucket(bucketName)
+	                .key(s3Key)
+	                .contentType("text/plain")
+	                .contentLength((long) contentBytes.length)
+	                .metadata(Map.of(
+	                    "analysisId", analysisId,
+	                    "uploadType", "code-content"
+	                ))
+	                .build();
+	        
+	        s3Client.putObject(putObjectRequest, 
+	                RequestBody.fromBytes(contentBytes));
+	        
+	        logger.info("Code content uploaded successfully to S3: {}/{}", bucketName, s3Key);
+	        return s3Key;
+	        
+	    } catch (Exception e) {
+	        logger.error("Error uploading code content to S3", e);
+	        throw new RuntimeException("Failed to upload code content to S3", e);
+	    }
 	}
 }

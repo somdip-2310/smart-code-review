@@ -31,9 +31,11 @@ public class SQSBedrockService {
     private AmazonSQS sqs;
     private ObjectMapper objectMapper;
     private String queueUrl;
+    private final S3Service s3Service;
 
-    public SQSBedrockService(AmazonSQS sqs) {
+    public SQSBedrockService(AmazonSQS sqs, S3Service s3Service) {
         this.sqs = sqs;
+        this.s3Service = s3Service;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -81,10 +83,22 @@ public class SQSBedrockService {
             // For large code, store in S3 and pass reference
             if (code.length() > 256000) { // SQS message size limit is 256KB
                 logger.info("Code too large for SQS, storing in S3 first");
-                // You would store in S3 here and pass S3 key instead
-                message.put("codeLocation", "s3");
-                message.put("s3Key", "analysis/" + analysisId + "/code.txt");
-                // Store code in S3 (implement S3 storage)
+                
+                // Generate consistent S3 key
+                String s3Key = String.format("analysis/%s/code.txt", analysisId);
+                
+                // Store code in S3
+                try {
+                    s3Service.uploadCodeContent(code, s3Key, analysisId);
+                    message.put("codeLocation", "s3");
+                    message.put("s3Key", s3Key);
+                    logger.info("Code stored in S3 with key: {}", s3Key);
+                } catch (Exception e) {
+                    logger.error("Failed to upload code to S3, falling back to inline", e);
+                    // Fallback: try to send inline if S3 fails
+                    message.put("code", code);
+                    message.put("codeLocation", "inline");
+                }
             } else {
                 message.put("code", code);
                 message.put("codeLocation", "inline");

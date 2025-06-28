@@ -671,118 +671,308 @@ class SmartCodeReviewApp {
     /**
      * Generate HTML for analysis results
      */
-    generateResultsHTML(result) {
-        const scoreClass = this.getScoreClass(result.overallScore);
-        
-        return `
-            <div class="analysis-results">
-                <!-- Overall Score -->
-                <div class="analysis-card">
-                    <div class="analysis-header">
-                        <div class="score-circle ${scoreClass}">
-                            ${result.overallScore.toFixed(1)}
-                        </div>
-                        <div>
-                            <h3>Overall Code Quality</h3>
-                            <p class="text-gray-600">${result.summary || 'Analysis completed successfully'}</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Metrics Grid -->
-                <div class="grid md:grid-cols-3 gap-6 mb-8">
-                    <div class="analysis-card">
-                        <h4 class="font-semibold text-red-600 mb-2">🔒 Security</h4>
-                        <div class="text-2xl font-bold">${result.security?.securityScore?.toFixed(1) || 'N/A'}</div>
-                        <p class="text-sm text-gray-600">${result.security?.hasSecurityIssues ? 'Issues found' : 'No issues detected'}</p>
-                    </div>
-                    <div class="analysis-card">
-                        <h4 class="font-semibold text-blue-600 mb-2">⚡ Performance</h4>
-                        <div class="text-2xl font-bold">${result.performance?.performanceScore?.toFixed(1) || 'N/A'}</div>
-                        <p class="text-sm text-gray-600">${result.performance?.complexity || 'Unknown'} complexity</p>
-                    </div>
-                    <div class="analysis-card">
-                        <h4 class="font-semibold text-green-600 mb-2">📊 Quality</h4>
-                        <div class="text-2xl font-bold">${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}</div>
-                        <p class="text-sm text-gray-600">${result.quality?.linesOfCode || 0} lines of code</p>
-                    </div>
-                </div>
-                
-                <!-- Issues Section -->
-                ${result.issues && result.issues.length > 0 ? `
-                    <div class="analysis-card">
-                        <h3 class="text-xl font-bold mb-4">🔍 Issues Found (${result.issues.length})</h3>
-                        <div class="issue-list">
-                            ${result.issues.map(issue => this.generateIssueHTML(issue)).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <!-- Suggestions Section -->
-                ${result.suggestions && result.suggestions.length > 0 ? `
-                    <div class="analysis-card">
-                        <h3 class="text-xl font-bold mb-4">💡 Recommendations (${result.suggestions.length})</h3>
-                        <div class="space-y-4">
-                            ${result.suggestions.map(suggestion => this.generateSuggestionHTML(suggestion)).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <!-- Security Details -->
-                ${result.security?.vulnerabilities && result.security.vulnerabilities.length > 0 ? `
-                    <div class="analysis-card">
-                        <h3 class="text-xl font-bold mb-4">🛡️ Security Analysis</h3>
-                        <div class="space-y-2">
-                            ${result.security.vulnerabilities.map(vuln => `
-                                <div class="p-3 bg-red-50 border border-red-200 rounded">
-                                    <div class="font-medium text-red-800">${vuln}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        ${result.security.recommendations && result.security.recommendations.length > 0 ? `
-                            <h4 class="font-semibold mt-4 mb-2">Recommendations:</h4>
-                            <ul class="list-disc list-inside space-y-1">
-                                ${result.security.recommendations.map(rec => `<li class="text-gray-700">${rec}</li>`).join('')}
-                            </ul>
-                        ` : ''}
-                    </div>
-                ` : ''}
-                
-                <!-- Performance Details -->
-                ${result.performance?.bottlenecks && result.performance.bottlenecks.length > 0 ? `
-                    <div class="analysis-card">
-                        <h3 class="text-xl font-bold mb-4">🚀 Performance Analysis</h3>
-                        <div class="space-y-2">
-                            ${result.performance.bottlenecks.map(bottleneck => `
-                                <div class="p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                    <div class="font-medium text-yellow-800">${bottleneck}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        ${result.performance.optimizations && result.performance.optimizations.length > 0 ? `
-                            <h4 class="font-semibold mt-4 mb-2">Optimizations:</h4>
-                            <ul class="list-disc list-inside space-y-1">
-                                ${result.performance.optimizations.map(opt => `<li class="text-gray-700">${opt}</li>`).join('')}
-                            </ul>
-                        ` : ''}
-                    </div>
-                ` : ''}
-                
-                <!-- Action Buttons -->
-                <div class="flex flex-col sm:flex-row gap-4 mt-8">
-                    <button onclick="app.downloadReport()" class="btn btn-primary">
-                        📄 Download Report
-                    </button>
-                    <button onclick="app.analyzeNewCode()" class="btn btn-secondary">
-                        🔄 Analyze New Code
-                    </button>
-                    <button onclick="window.print()" class="btn btn-secondary">
-                        🖨️ Print Results
-                    </button>
-                </div>
-            </div>
-        `;
-    }
+	/**
+	 * Generate HTML for analysis results with enhanced tabular display
+	 */
+	generateResultsHTML(result) {
+	    const scoreClass = this.getScoreClass(result.overallScore);
+	    
+	    return `
+	        <div class="analysis-results">
+	            <!-- Overall Score Card with Enhanced Design -->
+	            <div class="analysis-card bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+	                <div class="analysis-header">
+	                    <div class="score-circle ${scoreClass} shadow-lg">
+	                        ${result.overallScore.toFixed(1)}
+	                    </div>
+	                    <div>
+	                        <h3 class="text-2xl font-bold text-gray-900">Overall Code Quality</h3>
+	                        <p class="text-gray-600 mt-1">${result.summary || 'Analysis completed successfully'}</p>
+	                    </div>
+	                </div>
+	            </div>
+	            
+	            <!-- Enhanced Metrics Grid -->
+	            <div class="grid md:grid-cols-3 gap-6 mb-8">
+	                <div class="analysis-card border-l-4 border-red-500 hover:shadow-lg transition-shadow">
+	                    <h4 class="font-semibold text-red-600 mb-2 flex items-center">
+	                        <span class="text-2xl mr-2">🔒</span> Security
+	                    </h4>
+	                    <div class="text-3xl font-bold text-gray-900">${result.security?.securityScore?.toFixed(1) || 'N/A'}</div>
+	                    <p class="text-sm text-gray-600 mt-1">${result.security?.hasSecurityIssues ? 
+	                        `${result.security.criticalIssuesCount || 0} Critical, ${result.security.highIssuesCount || 0} High` : 
+	                        'No critical issues'}</p>
+	                </div>
+	                <div class="analysis-card border-l-4 border-blue-500 hover:shadow-lg transition-shadow">
+	                    <h4 class="font-semibold text-blue-600 mb-2 flex items-center">
+	                        <span class="text-2xl mr-2">⚡</span> Performance
+	                    </h4>
+	                    <div class="text-3xl font-bold text-gray-900">${result.performance?.performanceScore?.toFixed(1) || 'N/A'}</div>
+	                    <p class="text-sm text-gray-600 mt-1">${result.performance?.complexity || 'Unknown'} complexity</p>
+	                </div>
+	                <div class="analysis-card border-l-4 border-green-500 hover:shadow-lg transition-shadow">
+	                    <h4 class="font-semibold text-green-600 mb-2 flex items-center">
+	                        <span class="text-2xl mr-2">📊</span> Quality
+	                    </h4>
+	                    <div class="text-3xl font-bold text-gray-900">${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}</div>
+	                    <p class="text-sm text-gray-600 mt-1">${result.quality?.linesOfCode || 0} lines analyzed</p>
+	                </div>
+	            </div>
+	            
+	            <!-- Detailed Findings Table -->
+	            ${this.generateFindingsTable(result)}
+	            
+	            <!-- Security Vulnerabilities Table -->
+	            ${this.generateSecurityTable(result)}
+	            
+	            <!-- Performance Bottlenecks Table -->
+	            ${this.generatePerformanceTable(result)}
+	            
+	            <!-- Code Quality Metrics -->
+	            ${this.generateQualityMetrics(result)}
+	            
+	            <!-- Action Buttons -->
+	            <div class="flex flex-col sm:flex-row gap-4 mt-8">
+	                <button onclick="app.downloadPDFReport()" class="btn btn-primary bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700">
+	                    📄 Download PDF Report
+	                </button>
+	                <button onclick="app.analyzeNewCode()" class="btn btn-secondary">
+	                    🔄 Analyze New Code
+	                </button>
+	                <button onclick="app.shareResults()" class="btn btn-secondary">
+	                    🔗 Share Results
+	                </button>
+	            </div>
+	        </div>
+	    `;
+	}
+
+	/**
+	 * Generate detailed findings table with CVE scores
+	 */
+	generateFindingsTable(result) {
+	    if (!result.issues || result.issues.length === 0) {
+	        return '';
+	    }
+	    
+	    return `
+	        <div class="analysis-card">
+	            <h3 class="text-xl font-bold mb-4 flex items-center">
+	                <span class="text-2xl mr-2">🔍</span> 
+	                Detailed Findings (${result.issues.length})
+	            </h3>
+	            <div class="overflow-x-auto">
+	                <table class="min-w-full divide-y divide-gray-200">
+	                    <thead class="bg-gray-50">
+	                        <tr>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Severity</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Line</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CVE Score</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+	                        </tr>
+	                    </thead>
+	                    <tbody class="bg-white divide-y divide-gray-200">
+	                        ${result.issues.map((issue, index) => this.generateFindingRow(issue, index)).join('')}
+	                    </tbody>
+	                </table>
+	            </div>
+	        </div>
+	    `;
+	}
+
+	/**
+	 * Generate individual finding row
+	 */
+	generateFindingRow(issue, index) {
+	    const severityColors = {
+	        'CRITICAL': 'bg-red-100 text-red-800',
+	        'HIGH': 'bg-orange-100 text-orange-800',
+	        'MEDIUM': 'bg-yellow-100 text-yellow-800',
+	        'LOW': 'bg-green-100 text-green-800',
+	        'INFO': 'bg-blue-100 text-blue-800'
+	    };
+	    
+	    const cveScore = issue.cveScore || (issue.severity === 'CRITICAL' ? '9.8' : 
+	                                       issue.severity === 'HIGH' ? '7.5' : 
+	                                       issue.severity === 'MEDIUM' ? '5.0' : '2.5');
+	    
+	    return `
+	        <tr class="hover:bg-gray-50 transition-colors">
+	            <td class="px-4 py-3 whitespace-nowrap">
+	                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${severityColors[issue.severity] || severityColors.MEDIUM}">
+	                    ${issue.severity || 'MEDIUM'}
+	                </span>
+	            </td>
+	            <td class="px-4 py-3 text-sm text-gray-900">${issue.category || 'General'}</td>
+	            <td class="px-4 py-3 text-sm text-gray-900">
+	                <div class="max-w-xs">
+	                    <p class="font-medium truncate">${issue.title || issue.description}</p>
+	                    ${issue.description ? `<p class="text-xs text-gray-500 mt-1">${issue.description.substring(0, 100)}...</p>` : ''}
+	                </div>
+	            </td>
+	            <td class="px-4 py-3 text-sm text-gray-900">
+	                <code class="bg-gray-100 px-2 py-1 rounded text-xs">${issue.fileName || 'Unknown'}</code>
+	            </td>
+	            <td class="px-4 py-3 text-sm text-gray-900">${issue.lineNumber || '-'}</td>
+	            <td class="px-4 py-3 text-sm font-medium text-gray-900">${cveScore}</td>
+	            <td class="px-4 py-3 text-sm">
+	                <button onclick="app.viewIssueDetails(${index})" class="text-indigo-600 hover:text-indigo-900">
+	                    View Details
+	                </button>
+	            </td>
+	        </tr>
+	    `;
+	}
+
+	/**
+	 * Generate security vulnerabilities table
+	 */
+	generateSecurityTable(result) {
+	    if (!result.security?.detailedVulnerabilities?.length) {
+	        return '';
+	    }
+	    
+	    return `
+	        <div class="analysis-card">
+	            <h3 class="text-xl font-bold mb-4 flex items-center">
+	                <span class="text-2xl mr-2">🛡️</span> 
+	                Security Vulnerabilities Analysis
+	            </h3>
+	            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+	                <div class="bg-red-50 p-3 rounded-lg">
+	                    <p class="text-xs text-gray-600">Critical</p>
+	                    <p class="text-2xl font-bold text-red-600">${result.security.criticalIssuesCount || 0}</p>
+	                </div>
+	                <div class="bg-orange-50 p-3 rounded-lg">
+	                    <p class="text-xs text-gray-600">High</p>
+	                    <p class="text-2xl font-bold text-orange-600">${result.security.highIssuesCount || 0}</p>
+	                </div>
+	                <div class="bg-yellow-50 p-3 rounded-lg">
+	                    <p class="text-xs text-gray-600">Medium</p>
+	                    <p class="text-2xl font-bold text-yellow-600">${result.security.mediumIssuesCount || 0}</p>
+	                </div>
+	                <div class="bg-green-50 p-3 rounded-lg">
+	                    <p class="text-xs text-gray-600">Low</p>
+	                    <p class="text-2xl font-bold text-green-600">${result.security.lowIssuesCount || 0}</p>
+	                </div>
+	            </div>
+	            <div class="space-y-3">
+	                ${result.security.detailedVulnerabilities.map(vuln => `
+	                    <div class="border-l-4 ${vuln.severity === 'CRITICAL' ? 'border-red-500' : 'border-orange-500'} bg-gray-50 p-4 rounded-r-lg">
+	                        <div class="flex justify-between items-start">
+	                            <div>
+	                                <h4 class="font-semibold text-gray-900">${vuln.type}</h4>
+	                                <p class="text-sm text-gray-600 mt-1">${vuln.description}</p>
+	                                <p class="text-xs text-gray-500 mt-2">📍 ${vuln.location}</p>
+	                            </div>
+	                            <span class="text-sm font-bold text-gray-700">CVE: ${vuln.cveScore || 'N/A'}</span>
+	                        </div>
+	                        ${vuln.remediation ? `
+	                            <div class="mt-3 p-3 bg-blue-50 rounded">
+	                                <p class="text-sm font-medium text-blue-900">💡 Remediation:</p>
+	                                <p class="text-sm text-blue-700">${vuln.remediation}</p>
+	                            </div>
+	                        ` : ''}
+	                    </div>
+	                `).join('')}
+	            </div>
+	        </div>
+	    `;
+	}
+
+	/**
+	 * Generate performance analysis table
+	 */
+	generatePerformanceTable(result) {
+	    if (!result.performance?.detailedBottlenecks?.length) {
+	        return '';
+	    }
+	    
+	    return `
+	        <div class="analysis-card">
+	            <h3 class="text-xl font-bold mb-4 flex items-center">
+	                <span class="text-2xl mr-2">🚀</span> 
+	                Performance Analysis
+	            </h3>
+	            <div class="overflow-x-auto">
+	                <table class="min-w-full divide-y divide-gray-200">
+	                    <thead class="bg-gray-50">
+	                        <tr>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Impact</th>
+	                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Solution</th>
+	                        </tr>
+	                    </thead>
+	                    <tbody class="bg-white divide-y divide-gray-200">
+	                        ${result.performance.detailedBottlenecks.map(bottleneck => `
+	                            <tr class="hover:bg-gray-50">
+	                                <td class="px-4 py-3 text-sm text-gray-900">${bottleneck.type}</td>
+	                                <td class="px-4 py-3 text-sm">
+	                                    <span class="px-2 py-1 text-xs rounded-full ${
+	                                        bottleneck.severity === 'HIGH' ? 'bg-red-100 text-red-800' : 
+	                                        'bg-yellow-100 text-yellow-800'
+	                                    }">
+	                                        ${bottleneck.severity}
+	                                    </span>
+	                                </td>
+	                                <td class="px-4 py-3 text-sm text-gray-900">
+	                                    <code class="bg-gray-100 px-2 py-1 rounded text-xs">${bottleneck.location}</code>
+	                                </td>
+	                                <td class="px-4 py-3 text-sm text-gray-900">${bottleneck.estimatedImpact}</td>
+	                                <td class="px-4 py-3 text-sm text-gray-600">${bottleneck.solution}</td>
+	                            </tr>
+	                        `).join('')}
+	                    </tbody>
+	                </table>
+	            </div>
+	        </div>
+	    `;
+	}
+
+	/**
+	 * Generate code quality metrics display
+	 */
+	generateQualityMetrics(result) {
+	    if (!result.quality) {
+	        return '';
+	    }
+	    
+	    const metrics = [
+	        { label: 'Lines of Code', value: result.quality.linesOfCode || 0, icon: '📏' },
+	        { label: 'Cyclomatic Complexity', value: result.quality.complexityScore || 0, icon: '🔄' },
+	        { label: 'Maintainability Index', value: result.quality.maintainabilityScore?.toFixed(1) || 'N/A', icon: '🛠️' },
+	        { label: 'Test Coverage', value: `${result.quality.testCoverage || 0}%`, icon: '✅' },
+	        { label: 'Duplicate Lines', value: result.quality.duplicateLines || 0, icon: '📋' },
+	        { label: 'Technical Debt', value: result.quality.technicalDebt || 'Low', icon: '💳' }
+	    ];
+	    
+	    return `
+	        <div class="analysis-card">
+	            <h3 class="text-xl font-bold mb-4 flex items-center">
+	                <span class="text-2xl mr-2">📊</span> 
+	                Code Quality Metrics
+	            </h3>
+	            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+	                ${metrics.map(metric => `
+	                    <div class="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 transition-colors">
+	                        <div class="flex items-center justify-between">
+	                            <div>
+	                                <p class="text-sm text-gray-600">${metric.label}</p>
+	                                <p class="text-2xl font-bold text-gray-900 mt-1">${metric.value}</p>
+	                            </div>
+	                            <span class="text-3xl opacity-20">${metric.icon}</span>
+	                        </div>
+	                    </div>
+	                `).join('')}
+	            </div>
+	        </div>
+	    `;
+	}
     
     /**
      * Generate HTML for individual issues
@@ -1359,6 +1549,365 @@ class SmartCodeReviewApp {
         });
     }
     
+	/**
+	 * Generate and download PDF report with branded design
+	 */
+	async downloadPDFReport() {
+	    if (!this.currentAnalysis || !this.currentAnalysis.result) {
+	        this.showToast('No analysis results to download', 'error');
+	        return;
+	    }
+	    
+	    try {
+	        this.showLoading('Generating PDF report...');
+	        
+	        // Create PDF content using jsPDF (add script tag in HTML)
+	        const { jsPDF } = window.jspdf;
+	        const doc = new jsPDF();
+	        const result = this.currentAnalysis.result;
+	        
+	        // Brand colors
+	        const primaryColor = [59, 130, 246]; // Blue
+	        const secondaryColor = [99, 102, 241]; // Indigo
+	        
+	        // Add header with branding
+	        doc.setFillColor(...primaryColor);
+	        doc.rect(0, 0, 210, 40, 'F');
+	        
+	        // Logo and title
+	        doc.setTextColor(255, 255, 255);
+	        doc.setFontSize(24);
+	        doc.setFont('helvetica', 'bold');
+	        doc.text('Smart Code Review', 20, 20);
+	        doc.setFontSize(12);
+	        doc.setFont('helvetica', 'normal');
+	        doc.text('AI-Powered Code Analysis Report', 20, 30);
+	        
+	        // Report metadata
+	        doc.setTextColor(0, 0, 0);
+	        doc.setFontSize(10);
+	        const reportDate = new Date().toLocaleDateString('en-US', { 
+	            year: 'numeric', 
+	            month: 'long', 
+	            day: 'numeric' 
+	        });
+	        doc.text(`Generated: ${reportDate}`, 20, 50);
+	        doc.text(`Analysis ID: ${this.currentAnalysis.analysisId}`, 20, 57);
+	        
+	        // Executive Summary
+	        doc.setFontSize(16);
+	        doc.setFont('helvetica', 'bold');
+	        doc.text('Executive Summary', 20, 75);
+	        
+	        doc.setFontSize(10);
+	        doc.setFont('helvetica', 'normal');
+	        
+	        // Overall Score Box
+	        const scoreColor = result.overallScore >= 8 ? [34, 197, 94] : 
+	                          result.overallScore >= 6 ? [251, 191, 36] : [239, 68, 68];
+	        doc.setFillColor(...scoreColor);
+	        doc.roundedRect(20, 85, 50, 30, 3, 3, 'F');
+	        doc.setTextColor(255, 255, 255);
+	        doc.setFontSize(20);
+	        doc.setFont('helvetica', 'bold');
+	        doc.text(`${result.overallScore.toFixed(1)}/10`, 35, 105);
+	        
+	        // Summary text
+	        doc.setTextColor(0, 0, 0);
+	        doc.setFontSize(10);
+	        doc.setFont('helvetica', 'normal');
+	        const summaryLines = doc.splitTextToSize(result.summary || 'Analysis completed successfully.', 120);
+	        doc.text(summaryLines, 80, 90);
+	        
+	        // Key Metrics
+	        let yPos = 130;
+	        doc.setFontSize(14);
+	        doc.setFont('helvetica', 'bold');
+	        doc.text('Key Metrics', 20, yPos);
+	        
+	        yPos += 10;
+	        const metrics = [
+	            { label: 'Security Score', value: `${result.security?.securityScore?.toFixed(1) || 'N/A'}/10`, color: [239, 68, 68] },
+	            { label: 'Performance Score', value: `${result.performance?.performanceScore?.toFixed(1) || 'N/A'}/10`, color: [59, 130, 246] },
+	            { label: 'Quality Score', value: `${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}/10`, color: [34, 197, 94] }
+	        ];
+	        
+	        metrics.forEach(metric => {
+	            doc.setFillColor(...metric.color);
+	            doc.circle(25, yPos - 2, 2, 'F');
+	            doc.setTextColor(0, 0, 0);
+	            doc.setFontSize(10);
+	            doc.setFont('helvetica', 'normal');
+	            doc.text(`${metric.label}: `, 30, yPos);
+	            doc.setFont('helvetica', 'bold');
+	            doc.text(metric.value, 70, yPos);
+	            yPos += 8;
+	        });
+	        
+	        // Detailed Findings
+	        yPos += 10;
+	        doc.setFontSize(14);
+	        doc.setFont('helvetica', 'bold');
+	        doc.text('Detailed Findings', 20, yPos);
+	        
+	        yPos += 10;
+	        if (result.issues && result.issues.length > 0) {
+	            // Group issues by severity
+	            const issuesBySeverity = this.groupIssuesBySeverity(result.issues);
+	            
+	            ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].forEach(severity => {
+	                if (issuesBySeverity[severity] && issuesBySeverity[severity].length > 0) {
+	                    // Check if we need a new page
+	                    if (yPos > 250) {
+	                        doc.addPage();
+	                        yPos = 20;
+	                    }
+	                    
+	                    // Severity header
+	                    const severityColors = {
+	                        'CRITICAL': [127, 29, 29],
+	                        'HIGH': [194, 65, 12],
+	                        'MEDIUM': [202, 138, 4],
+	                        'LOW': [21, 128, 61]
+	                    };
+	                    
+	                    doc.setTextColor(...severityColors[severity]);
+	                    doc.setFontSize(12);
+	                    doc.setFont('helvetica', 'bold');
+	                    doc.text(`${severity} (${issuesBySeverity[severity].length})`, 20, yPos);
+	                    yPos += 8;
+	                    
+	                    // Issue details
+	                    doc.setTextColor(0, 0, 0);
+	                    doc.setFontSize(9);
+	                    doc.setFont('helvetica', 'normal');
+	                    
+	                    issuesBySeverity[severity].forEach((issue, index) => {
+	                        if (yPos > 270) {
+	                            doc.addPage();
+	                            yPos = 20;
+	                        }
+	                        
+	                        // Issue title
+	                        doc.setFont('helvetica', 'bold');
+	                        doc.text(`${index + 1}. ${issue.title || issue.category}`, 25, yPos);
+	                        yPos += 5;
+	                        
+	                        // Issue details
+	                        doc.setFont('helvetica', 'normal');
+	                        const descLines = doc.splitTextToSize(issue.description, 160);
+	                        doc.text(descLines, 30, yPos);
+	                        yPos += descLines.length * 4;
+	                        
+	                        // File and line info
+	                        if (issue.fileName) {
+	                            doc.setFont('helvetica', 'italic');
+	                            doc.text(`File: ${issue.fileName}${issue.lineNumber ? `, Line: ${issue.lineNumber}` : ''}`, 30, yPos);
+	                            yPos += 5;
+	                        }
+	                        
+	                        // CVE Score if available
+	                        if (issue.cveScore) {
+	                            doc.setFont('helvetica', 'bold');
+	                            doc.text(`CVE Score: ${issue.cveScore}`, 30, yPos);
+	                            yPos += 5;
+	                        }
+	                        
+	                        yPos += 5; // Space between issues
+	                    });
+	                    
+	                    yPos += 5; // Space between severity levels
+	                }
+	            });
+	        }
+	        
+	        // Security Analysis Details
+	        if (result.security?.detailedVulnerabilities?.length > 0) {
+	            if (yPos > 230) {
+	                doc.addPage();
+	                yPos = 20;
+	            }
+	            
+	            doc.setFontSize(14);
+	            doc.setFont('helvetica', 'bold');
+	            doc.text('Security Vulnerabilities', 20, yPos);
+	            yPos += 10;
+	            
+	            result.security.detailedVulnerabilities.forEach(vuln => {
+	                if (yPos > 250) {
+	                    doc.addPage();
+	                    yPos = 20;
+	                }
+	                
+	                doc.setFontSize(10);
+	                doc.setFont('helvetica', 'bold');
+	                doc.text(vuln.type, 25, yPos);
+	                yPos += 5;
+	                
+	                doc.setFont('helvetica', 'normal');
+	                const vulnDesc = doc.splitTextToSize(vuln.description, 160);
+	                doc.text(vulnDesc, 30, yPos);
+	                yPos += vulnDesc.length * 4;
+	                
+	                if (vuln.remediation) {
+	                    doc.setFont('helvetica', 'italic');
+	                    const remediation = doc.splitTextToSize(`Remediation: ${vuln.remediation}`, 155);
+	                    doc.text(remediation, 30, yPos);
+	                    yPos += remediation.length * 4;
+	                }
+	                
+	                yPos += 8;
+	            });
+	        }
+	        
+	        // Recommendations
+	        if (result.suggestions && result.suggestions.length > 0) {
+	            if (yPos > 230) {
+	                doc.addPage();
+	                yPos = 20;
+	            }
+	            
+	            doc.setFontSize(14);
+	            doc.setFont('helvetica', 'bold');
+	            doc.text('Recommendations', 20, yPos);
+	            yPos += 10;
+	            
+	            doc.setFontSize(10);
+	            doc.setFont('helvetica', 'normal');
+	            
+	            result.suggestions.forEach((suggestion, index) => {
+	                if (yPos > 270) {
+	                    doc.addPage();
+	                    yPos = 20;
+	                }
+	                
+	                const suggestionText = `${index + 1}. ${suggestion}`;
+	                const lines = doc.splitTextToSize(suggestionText, 170);
+	                doc.text(lines, 20, yPos);
+	                yPos += lines.length * 5 + 3;
+	            });
+	        }
+	        
+	        // Footer on last page
+	        const pageCount = doc.internal.getNumberOfPages();
+	        for (let i = 1; i <= pageCount; i++) {
+	            doc.setPage(i);
+	            doc.setFontSize(8);
+	            doc.setTextColor(128, 128, 128);
+	            doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+	            doc.text('© 2024 Smart Code Review - Powered by AWS Bedrock', 105, 295, { align: 'center' });
+	        }
+	        
+	        // Save the PDF
+	        const fileName = `smart-code-review-${this.currentAnalysis.analysisId}-${new Date().toISOString().split('T')[0]}.pdf`;
+	        doc.save(fileName);
+	        
+	        this.hideLoading();
+	        this.showToast('PDF report downloaded successfully', 'success');
+	        
+	        // Track event
+	        this.trackEvent('pdf_report_downloaded', {
+	            event_category: 'analysis',
+	            event_label: 'pdf_report',
+	            analysis_id: this.currentAnalysis.analysisId
+	        });
+	        
+	    } catch (error) {
+	        console.error('Error generating PDF:', error);
+	        this.hideLoading();
+	        this.showToast('Failed to generate PDF report', 'error');
+	    }
+	}
+
+	/**
+	 * Group issues by severity for PDF report
+	 */
+	groupIssuesBySeverity(issues) {
+	    return issues.reduce((grouped, issue) => {
+	        const severity = issue.severity || 'MEDIUM';
+	        if (!grouped[severity]) {
+	            grouped[severity] = [];
+	        }
+	        grouped[severity].push(issue);
+	        return grouped;
+	    }, {});
+	}
+
+	/**
+	 * View detailed issue information
+	 */
+	viewIssueDetails(index) {
+	    const issue = this.currentAnalysis.result.issues[index];
+	    if (!issue) return;
+	    
+	    // Create modal with issue details
+	    const modal = document.createElement('div');
+	    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+	    modal.innerHTML = `
+	        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+	            <div class="mt-3">
+	                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+	                    ${issue.title || issue.description}
+	                </h3>
+	                
+	                <div class="mt-2 space-y-3">
+	                    <div class="bg-gray-50 p-3 rounded">
+	                        <p class="text-sm font-medium text-gray-700">Severity</p>
+	                        <p class="text-lg font-bold ${issue.severity === 'CRITICAL' ? 'text-red-600' : 
+	                                                     issue.severity === 'HIGH' ? 'text-orange-600' : 
+	                                                     issue.severity === 'MEDIUM' ? 'text-yellow-600' : 'text-green-600'}">
+	                            ${issue.severity}
+	                        </p>
+	                    </div>
+	                    
+	                    <div class="bg-gray-50 p-3 rounded">
+	                        <p class="text-sm font-medium text-gray-700">Category</p>
+	                        <p class="text-sm text-gray-900">${issue.category || 'General'}</p>
+	                    </div>
+	                    
+	                    <div class="bg-gray-50 p-3 rounded">
+	                        <p class="text-sm font-medium text-gray-700">Description</p>
+	                        <p class="text-sm text-gray-900">${issue.description}</p>
+	                    </div>
+	                    
+	                    ${issue.fileName ? `
+	                        <div class="bg-gray-50 p-3 rounded">
+	                            <p class="text-sm font-medium text-gray-700">Location</p>
+	                            <p class="text-sm text-gray-900">
+	                                <code class="bg-gray-200 px-2 py-1 rounded">${issue.fileName}</code>
+	                                ${issue.lineNumber ? ` at line ${issue.lineNumber}` : ''}
+	                            </p>
+	                        </div>
+	                    ` : ''}
+	                    
+	                    ${issue.codeSnippet ? `
+	                        <div class="bg-gray-50 p-3 rounded">
+	                            <p class="text-sm font-medium text-gray-700 mb-2">Code Snippet</p>
+	                            <pre class="bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto text-xs"><code>${this.escapeHtml(issue.codeSnippet)}</code></pre>
+	                        </div>
+	                    ` : ''}
+	                    
+	                    ${issue.suggestion ? `
+	                        <div class="bg-blue-50 p-3 rounded">
+	                            <p class="text-sm font-medium text-blue-700 mb-1">💡 Suggestion</p>
+	                            <p class="text-sm text-blue-900">${issue.suggestion}</p>
+	                        </div>
+	                    ` : ''}
+	                </div>
+	                
+	                <div class="mt-5 sm:mt-6">
+	                    <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+	                            class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+	                        Close
+	                    </button>
+	                </div>
+	            </div>
+	        </div>
+	    `;
+	    
+	    document.body.appendChild(modal);
+	}
+	
     generateReportData(result) {
         return {
             generatedAt: new Date().toISOString(),

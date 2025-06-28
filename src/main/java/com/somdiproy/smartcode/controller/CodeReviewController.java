@@ -2,11 +2,15 @@ package com.somdiproy.smartcode.controller;
 
 import com.somdiproy.smartcode.dto.*;
 import com.somdiproy.smartcode.service.CodeAnalysisService;
+import com.somdiproy.smartcode.service.ReportGenerationService;
 import com.somdiproy.smartcode.service.SessionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +43,9 @@ public class CodeReviewController {
     
     @Autowired
     private SessionService sessionService;
+    
+    @Autowired
+    private ReportGenerationService reportGenerationService;
     
     /**
      * Health check endpoint
@@ -275,6 +282,46 @@ public class CodeReviewController {
                             .status(AnalysisStatus.FAILED)
                             .analysisId(analysisId)
                             .build());
+        }
+    }
+    
+    /**
+     * Generate PDF report for analysis
+     */
+    @GetMapping("/analysis/{analysisId}/report")
+    public ResponseEntity<byte[]> downloadReport(@PathVariable String analysisId,
+                                                @RequestParam String sessionToken) {
+        try {
+            logger.info("Generating PDF report for analysis: {}", analysisId);
+            
+            // Validate session
+            if (!sessionService.isValidSession(sessionToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            // Get analysis result
+            AnalysisResponse response = codeAnalysisService.getAnalysisResult(analysisId);
+            
+            if (response == null || response.getResult() == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Generate PDF (implement in ReportGenerationService)
+            byte[] pdfBytes = reportGenerationService.generatePDFReport(response);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(ContentDisposition.builder("attachment")
+                    .filename("code-analysis-" + analysisId + ".pdf")
+                    .build());
+            
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdfBytes);
+                    
+        } catch (Exception e) {
+            logger.error("Error generating PDF report", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
     

@@ -1,0 +1,16 @@
+{
+  "FunctionName": "BedrockAnalysisProcessor",
+  "Runtime": "java17",
+  "Handler": "com.somdiproy.smartcode.lambda.BedrockAnalysisLambda::handleRequest",
+  "Timeout": 900,
+  "MemorySize": 3008,
+  "ReservedConcurrentExecutions": 2,
+  "Environment": {
+    "Variables": {
+      "DYNAMODB_TABLE_NAME": "code-analysis-results",
+      "S3_BUCKET_NAME": "smartcode-uploads",
+      "BEDROCK_MODEL_ID": "us.amazon.nova-premier-v1:0",
+      "JAVA_TOOL_OPTIONS": "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+    }
+  }
+}

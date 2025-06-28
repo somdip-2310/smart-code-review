@@ -42,19 +42,10 @@
                     <!-- Results will be dynamically inserted by app.js -->
                 </div>
                 
-                <!-- Error State (Hidden initially) -->
-                <div id="error-state" class="hidden text-center py-12">
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md mx-auto">
-                        <svg class="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        <h3 class="text-lg font-semibold text-red-800 mb-2">Unable to Load Results</h3>
-                        <p class="text-red-600 mb-4" id="error-message">Failed to retrieve analysis results</p>
-                        <a href="/upload" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                            Try Again
-                        </a>
-                    </div>
-                </div>
+				<!-- Error State (Hidden initially) -->
+				<div id="error-state" class="hidden text-center py-12">
+				    <!-- Dynamic error content will be inserted here by JavaScript -->
+				</div>
             </div>
         </section>
     </main>
@@ -134,32 +125,52 @@
                 }
                 
                 const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    // Extract code length if available
-                    if (data.result?.metadata?.codeLength) {
-                        codeLength = data.result.metadata.codeLength;
-                    }
-                    
-                    switch (data.status) {
-                        case 'COMPLETED':
-                            displayResults(data);
-                            break;
-                        case 'PROCESSING':
-                        case 'QUEUED':
-                            showProcessingState(data.message, codeLength);
-                            scheduleNextPoll();
-                            break;
-                        case 'FAILED':
-                            showError(data.message || 'Analysis failed. Please try again.');
-                            break;
-                        default:
-                            showProcessingState('Processing...', codeLength);
-                            scheduleNextPoll();
-                    }
-                } else {
-                    handleErrorResponse(response, data);
-                }
+				// Debug logging
+				console.log('Analysis response:', {
+				    status: data.status,
+				    success: data.success,
+				    hasResult: !!data.result,
+				    message: data.message
+				});
+				if (response.ok && data.success) {
+				    // Extract code length if available
+				    if (data.result?.metadata?.codeLength) {
+				        codeLength = data.result.metadata.codeLength;
+				    }
+				    
+				    switch (data.status) {
+				        case 'COMPLETED':
+				            // Validate that we have actual results
+				            if (!data.result || (typeof data.result === 'string' && data.result.trim() === '')) {
+				                showDetailedError('Analysis completed but results are empty. Please try again.', data);
+				            } else {
+				                displayResults(data);
+				            }
+				            break;
+				        case 'PROCESSING':
+				        case 'QUEUED':
+				            showProcessingState(data.message || 'Processing your code...', codeLength);
+				            scheduleNextPoll();
+				            break;
+				        case 'FAILED':
+				            // Provide more detailed error message
+				            let errorMsg = 'Analysis failed';
+				            if (data.message) {
+				                if (data.message.includes('Failed to process message')) {
+				                    errorMsg = 'Failed to process your code. This may be due to formatting issues or AI service errors. Please try again.';
+				                } else {
+				                    errorMsg = data.message;
+				                }
+				            }
+				            showDetailedError(errorMsg, data);
+				            break;
+				        default:
+				            showProcessingState('Processing...', codeLength);
+				            scheduleNextPoll();
+				    }
+				} else {
+				    handleErrorResponse(response, data);
+				}
             } catch (error) {
                 handleNetworkError(error);
             }
@@ -329,27 +340,96 @@
             `;
         }
         
-        function displayResults(data) {
-            // Clear any pending timeouts
-            if (pollTimeoutId) {
-                clearTimeout(pollTimeoutId);
-                pollTimeoutId = null;
-            }
-            
-            // Hide loading, show results
-            document.getElementById('loading-state').classList.add('hidden');
-            document.getElementById('results-container').classList.remove('hidden');
-            
-            // Use app's display function
-            const app = window.smartCodeReviewApp || window.app;
-            if (app && typeof app.displayAnalysisResults === 'function') {
-                app.displayAnalysisResults(data);
-            } else {
-                console.error('App display function not available');
-                showError('Unable to display results. Please refresh the page.');
-            }
-        }
-        
+		function displayResults(data) {
+		    // Clear any pending timeouts
+		    if (pollTimeoutId) {
+		        clearTimeout(pollTimeoutId);
+		        pollTimeoutId = null;
+		    }
+		    
+		    // Check if we have a valid result
+		    if (!data.result && data.status === 'COMPLETED') {
+		        showError('Analysis completed but no results found. Please try again.');
+		        return;
+		    }
+		    
+		    // Hide loading, show results
+		    document.getElementById('loading-state').classList.add('hidden');
+		    document.getElementById('results-container').classList.remove('hidden');
+		    
+		    // Use app's display function
+		    const app = window.smartCodeReviewApp || window.app;
+		    if (app && typeof app.displayAnalysisResults === 'function') {
+		        try {
+		            app.displayAnalysisResults(data);
+		        } catch (error) {
+		            console.error('Error displaying results:', error);
+		            showError('Failed to display results. Please refresh the page.');
+		        }
+		    } else {
+		        console.error('App display function not available');
+		        showError('Unable to display results. Please refresh the page.');
+		    }
+		}
+		function showDetailedError(message, data = null) {
+		    // Clear any pending timeouts
+		    if (pollTimeoutId) {
+		        clearTimeout(pollTimeoutId);
+		        pollTimeoutId = null;
+		    }
+		    
+		    document.getElementById('loading-state').classList.add('hidden');
+		    document.getElementById('error-state').classList.remove('hidden');
+		    
+		    const errorState = document.getElementById('error-state');
+		    errorState.innerHTML = `
+		        <div class="bg-red-50 border border-red-200 rounded-lg p-8 max-w-2xl mx-auto">
+		            <div class="flex items-center justify-center mb-4">
+		                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+		                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+		                    </svg>
+		                </div>
+		            </div>
+		            <h3 class="text-xl font-semibold text-red-800 mb-2 text-center">Unable to Load Results</h3>
+		            <p class="text-red-600 mb-4 text-center">${message}</p>
+		            ${data && data.error ? `<p class="text-sm text-red-500 mb-4 text-center font-mono">${data.error}</p>` : ''}
+		            
+		            <div class="bg-red-100 rounded-lg p-4 mb-6">
+		                <h4 class="text-sm font-semibold text-red-800 mb-2">What can you do?</h4>
+		                <ul class="text-sm text-red-700 space-y-1 list-disc list-inside">
+		                    <li>Try analyzing smaller code segments (under 50KB)</li>
+		                    <li>Ensure your code is properly formatted</li>
+		                    <li>Remove any binary content or encoded data</li>
+		                    <li>Wait a few moments and try again</li>
+		                </ul>
+		            </div>
+		            
+		            <div class="flex justify-center space-x-4">
+		                <a href="/smartcode/analyze" 
+		                   class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+		                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+		                    </svg>
+		                    Try Again
+		                </a>
+		                <a href="/smartcode" 
+		                   class="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-200">
+		                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+		                    </svg>
+		                    Back to Home
+		                </a>
+		            </div>
+		            
+		            <div class="mt-6 text-center">
+		                <p class="text-xs text-gray-500">
+		                    Analysis ID: <span class="font-mono">${analysisId}</span>
+		                </p>
+		            </div>
+		        </div>
+		    `;
+		}
         function showError(message) {
             // Clear any pending timeouts
             if (pollTimeoutId) {
@@ -378,17 +458,19 @@
             showError(errorMessages[response.status] || data.message || 'Failed to retrieve results.');
         }
         
-        function handleNetworkError(error) {
-            console.error('Network error:', error);
-            
-            if (pollAttempts < 5) {
-                pollAttempts++;
-                showProcessingState('Connection interrupted. Retrying...', codeLength);
-                pollTimeoutId = setTimeout(fetchAnalysisResults, 3000);
-            } else {
-                showError('Network error. Please check your connection and refresh the page.');
-            }
-        }
+		function handleNetworkError(error) {
+		    console.error('Network error:', error);
+		    
+		    if (pollAttempts < 5) {
+		        pollAttempts++;
+		        showProcessingState('Connection interrupted. Retrying...', codeLength);
+		        pollTimeoutId = setTimeout(fetchAnalysisResults, 3000);
+		    } else {
+		        showDetailedError('Network error. Please check your connection and try again.', {
+		            error: error.message || 'Connection failed'
+		        });
+		    }
+		}
         
         // Cleanup on page unload
         window.addEventListener('beforeunload', function() {

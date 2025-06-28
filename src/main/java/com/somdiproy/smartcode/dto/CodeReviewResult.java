@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 /**
  * Code Review Result DTO
  * 
@@ -17,6 +17,7 @@ public class CodeReviewResult {
     private String summary;
     private double overallScore;
     private List<Issue> issues;
+    @JsonDeserialize(using = SuggestionsDeserializer.class)
     private List<Suggestion> suggestions;
     private SecurityAnalysis security;
     private PerformanceAnalysis performance;

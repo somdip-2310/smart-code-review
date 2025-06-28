@@ -1,4 +1,6 @@
 package com.somdiproy.smartcode.dto;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Code Issue DTO
@@ -14,7 +16,11 @@ public class Issue {
     private String title;
     private String description;
     private String fileName;
+    
+    @JsonProperty("lineNumber")
+    @JsonAlias({"line", "lineNumber"})
     private int lineNumber;
+    
     private String codeSnippet;
     private String suggestion;
     private String category;     // Security, Performance, Quality, Best Practice

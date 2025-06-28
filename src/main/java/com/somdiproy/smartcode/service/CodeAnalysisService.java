@@ -275,6 +275,7 @@ public class CodeAnalysisService {
             metadata.put("fileSize", fileSize);
             metadata.put("uploadTimestamp", LocalDateTime.now().toString());
             metadata.put("linesOfCode", linesOfCode);
+            metadata.put("codeLength", extractedCode.length());
             
             // Submit to Bedrock processing queue with metadata
             if (sqsService != null) {

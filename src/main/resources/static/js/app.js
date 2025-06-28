@@ -686,7 +686,8 @@ class SmartCodeReviewApp {
 				    <div class="analysis-card bg-gray-50 border border-gray-200 mb-6">
 				        <div class="flex items-center justify-between p-4">
 				            <div>
-				                <h4 class="font-semibold text-gray-700">📁 File Analyzed</h4>
+							<h4 class="font-semibold text-gray-700">📁 File Analyzed</h4>
+							                <p class="text-lg text-gray-900">${result.metadata?.fileName || result.metadata?.filename || 'Unknown File'}</p>
 				                <p class="text-lg text-gray-900">${result.metadata.fileName}</p>
 				            </div>
 				            <div class="text-sm text-gray-500">
@@ -697,9 +698,9 @@ class SmartCodeReviewApp {
 				` : ''}
 	            <div class="analysis-card bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
 	                <div class="analysis-header">
-	                    <div class="score-circle ${scoreClass} shadow-lg">
-	                        ${result.overallScore.toFixed(1)}
-	                    </div>
+					<div class="score-circle ${scoreClass} shadow-lg">
+					                        ${result.overallScore ? result.overallScore.toFixed(1) : ''}
+					                    </div>
 	                    <div>
 	                        <h3 class="text-2xl font-bold text-gray-900">Overall Code Quality</h3>
 	                        <p class="text-gray-600 mt-1">${result.summary || 'Analysis completed successfully'}</p>
@@ -713,7 +714,7 @@ class SmartCodeReviewApp {
 	                    <h4 class="font-semibold text-red-600 mb-2 flex items-center">
 	                        <span class="text-2xl mr-2">🔒</span> Security
 	                    </h4>
-	                    <div class="text-3xl font-bold text-gray-900">${result.security?.securityScore?.toFixed(1) || 'N/A'}</div>
+	                    <div class="text-3xl font-bold text-gray-900">${result.security?.securityScore ? result.security.securityScore.toFixed(1) : 'N/A'}</div>
 	                    <p class="text-sm text-gray-600 mt-1">${result.security?.hasSecurityIssues ? 
 	                        `${result.security.criticalIssuesCount || 0} Critical, ${result.security.highIssuesCount || 0} High` : 
 	                        'No critical issues'}</p>
@@ -859,6 +860,8 @@ class SmartCodeReviewApp {
 	            <td class="px-4 py-3 text-sm font-medium text-gray-900">${cveScore}</td>
 	            <td class="px-4 py-3 text-sm">
 				<button onclick="window.app.viewIssueDetails(${index})" class="text-indigo-600 hover:text-indigo-900 font-medium">
+								    View Details
+								</button>
 				    View Details
 				</button>
 	            </td>
@@ -985,7 +988,7 @@ class SmartCodeReviewApp {
 	    }
 	    
 	    const metrics = [
-	        { label: 'Lines of Code', value: result.quality.linesOfCode || 0, icon: '📏' },
+	        { label: 'Lines of Code', value: result.quality?.linesOfCode || result.metadata?.linesOfCode || result.metadata?.codeLength || 'N/A', icon: '📏' },
 	        { label: 'Maintainability Index', value: result.quality.maintainabilityScore?.toFixed(1) || 'N/A', icon: '🛠️' },
 	        { label: 'Readability Score', value: result.quality.readabilityScore?.toFixed(1) || 'N/A', icon: '📖' },
 	        { label: 'Test Coverage', value: `${result.quality.testCoverage || 0}%`, icon: '✅' },

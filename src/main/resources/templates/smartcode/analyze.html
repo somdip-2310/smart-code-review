@@ -806,7 +806,7 @@
 		            window.URL.revokeObjectURL(url);
 		        } else {
 		            if (window.smartCodeReviewApp) {
-		                window.smartCodeReviewApp.showToast('Report download not available in demo version', 'info');
+		                window.app.downloadPDFReport();
 		            }
 		        }
 		    } catch (error) {

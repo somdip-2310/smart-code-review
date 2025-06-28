@@ -380,7 +380,7 @@
                                 </svg>
                                 <div>
                                     <p class="text-sm font-medium text-indigo-800">Estimated Time</p>
-                                    <p class="text-xs text-indigo-600">${estimatedMinutes} minute${estimatedMinutes > 1 ? 's' : ''} remaining</p>
+                                   
                                 </div>
                             </div>
                         </div>
@@ -425,7 +425,11 @@
 		    const app = window.smartCodeReviewApp || window.app;
 		    if (app && typeof app.displayAnalysisResults === 'function') {
 		        try {
-		            app.displayAnalysisResults(data);
+					// Ensure result object is properly passed
+					if (data.result && typeof data.result === 'string') {
+					    data.result = JSON.parse(data.result);
+					}
+					app.displayAnalysisResults(data);
 		        } catch (error) {
 		            console.error('Error displaying results:', error);
 		            showError('Failed to display results. Please refresh the page.');

@@ -645,32 +645,33 @@ class SmartCodeReviewApp {
 	            `;
 	        }
 	    }
-    /**
-     * Display analysis results in the UI
-     */
-    displayAnalysisResults(analysisData) {
-        const resultsContainer = document.getElementById('results-container');
-        if (!resultsContainer) return;
-        
-        const result = analysisData.result;
-        if (!result) {
-            this.showToast('No analysis results available', 'error');
-            return;
-        }
-        
-        resultsContainer.innerHTML = this.generateResultsHTML(result);
-        
-        // Initialize interactive elements in results
-        this.initializeResultsInteractivity();
-		this.checkAchievements(analysisData.result);
-		this.saveToHistory(analysisData);
-        // Scroll to results
-        resultsContainer.scrollIntoView({ behavior: 'smooth' });
-    }
-    
-    /**
-     * Generate HTML for analysis results
-     */
+		/**
+		 * Display analysis results in the UI
+		 */
+		displayAnalysisResults(analysisData) {
+		    // Store the analysis data for other methods to use
+		    this.currentAnalysis = analysisData;
+		    
+		    const resultsContainer = document.getElementById('results-container');
+		    if (!resultsContainer) return;
+		    
+		    const result = analysisData.result;
+		    if (!result) {
+		        this.showToast('No analysis results available', 'error');
+		        return;
+		    }
+		    
+		    resultsContainer.innerHTML = this.generateResultsHTML(result);
+		    
+		    // Initialize interactive elements in results
+		    this.initializeResultsInteractivity();
+		    this.checkAchievements(analysisData.result);
+		    this.saveToHistory(analysisData);
+		    
+		    // Scroll to results
+		    resultsContainer.scrollIntoView({ behavior: 'smooth' });
+		}
+	
 	/**
 	 * Generate HTML for analysis results with enhanced tabular display
 	 */
@@ -786,7 +787,21 @@ class SmartCodeReviewApp {
 	/**
 	 * Generate individual finding row
 	 */
+	/**
+	 * Generate individual finding row
+	 */
 	generateFindingRow(issue, index) {
+	    // Handle undefined or null issues
+	    if (!issue) {
+	        return `
+	            <tr class="hover:bg-gray-50 transition-colors">
+	                <td colspan="7" class="px-4 py-3 text-center text-sm text-gray-500">
+	                    Invalid issue data
+	                </td>
+	            </tr>
+	        `;
+	    }
+	    
 	    const severityColors = {
 	        'CRITICAL': 'bg-red-100 text-red-800',
 	        'HIGH': 'bg-orange-100 text-orange-800',
@@ -795,28 +810,38 @@ class SmartCodeReviewApp {
 	        'INFO': 'bg-blue-100 text-blue-800'
 	    };
 	    
-	    const cveScore = issue.cveScore || (issue.severity === 'CRITICAL' ? '9.8' : 
-	                                       issue.severity === 'HIGH' ? '7.5' : 
-	                                       issue.severity === 'MEDIUM' ? '5.0' : '2.5');
+	    const cveScore = issue.cveScore || (
+	        issue.severity === 'CRITICAL' ? '9.8' : 
+	        issue.severity === 'HIGH' ? '7.5' : 
+	        issue.severity === 'MEDIUM' ? '5.0' : '2.5'
+	    );
+	    
+	    // Ensure all fields have defaults
+	    const severity = issue.severity || 'MEDIUM';
+	    const category = issue.category || 'General';
+	    const title = issue.title || 'Code Issue';
+	    const description = issue.description || '';
+	    const fileName = issue.fileName || 'Unknown';
+	    const lineNumber = issue.lineNumber || '-';
 	    
 	    return `
 	        <tr class="hover:bg-gray-50 transition-colors">
 	            <td class="px-4 py-3 whitespace-nowrap">
-	                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${severityColors[issue.severity] || severityColors.MEDIUM}">
-	                    ${issue.severity || 'MEDIUM'}
+	                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${severityColors[severity] || severityColors.MEDIUM}">
+	                    ${severity}
 	                </span>
 	            </td>
-	            <td class="px-4 py-3 text-sm text-gray-900">${issue.category || 'General'}</td>
+	            <td class="px-4 py-3 text-sm text-gray-900">${category}</td>
 	            <td class="px-4 py-3 text-sm text-gray-900">
 	                <div class="max-w-xs">
-	                    <p class="font-medium truncate">${issue.title || issue.description}</p>
-	                    ${issue.description ? `<p class="text-xs text-gray-500 mt-1">${issue.description.substring(0, 100)}...</p>` : ''}
+	                    <p class="font-medium truncate">${title}</p>
+	                    ${description ? `<p class="text-xs text-gray-500 mt-1">${description.substring(0, 100)}...</p>` : ''}
 	                </div>
 	            </td>
 	            <td class="px-4 py-3 text-sm text-gray-900">
-	                <code class="bg-gray-100 px-2 py-1 rounded text-xs">${issue.fileName || 'Unknown'}</code>
+	                <code class="bg-gray-100 px-2 py-1 rounded text-xs">${fileName}</code>
 	            </td>
-	            <td class="px-4 py-3 text-sm text-gray-900">${issue.lineNumber || '-'}</td>
+	            <td class="px-4 py-3 text-sm text-gray-900">${lineNumber}</td>
 	            <td class="px-4 py-3 text-sm font-medium text-gray-900">${cveScore}</td>
 	            <td class="px-4 py-3 text-sm">
 	                <button onclick="app.viewIssueDetails(${index})" class="text-indigo-600 hover:text-indigo-900">
@@ -937,6 +962,9 @@ class SmartCodeReviewApp {
 	/**
 	 * Generate code quality metrics display
 	 */
+	/**
+	 * Generate code quality metrics display
+	 */
 	generateQualityMetrics(result) {
 	    if (!result.quality) {
 	        return '';
@@ -944,8 +972,8 @@ class SmartCodeReviewApp {
 	    
 	    const metrics = [
 	        { label: 'Lines of Code', value: result.quality.linesOfCode || 0, icon: '📏' },
-	        { label: 'Cyclomatic Complexity', value: result.quality.complexityScore || 0, icon: '🔄' },
 	        { label: 'Maintainability Index', value: result.quality.maintainabilityScore?.toFixed(1) || 'N/A', icon: '🛠️' },
+	        { label: 'Readability Score', value: result.quality.readabilityScore?.toFixed(1) || 'N/A', icon: '📖' },
 	        { label: 'Test Coverage', value: `${result.quality.testCoverage || 0}%`, icon: '✅' },
 	        { label: 'Duplicate Lines', value: result.quality.duplicateLines || 0, icon: '📋' },
 	        { label: 'Technical Debt', value: result.quality.technicalDebt || 'Low', icon: '💳' }
@@ -1548,7 +1576,65 @@ class SmartCodeReviewApp {
             event_label: 'json_report'
         });
     }
-    
+	/**
+	 * Share analysis results
+	 */
+	shareResults() {
+	    if (!this.currentAnalysis || !this.currentAnalysis.result) {
+	        this.showToast('No analysis results to share', 'error');
+	        return;
+	    }
+	    
+	    const shareUrl = `${window.location.origin}/smartcode/results/${this.currentAnalysis.analysisId}`;
+	    const shareText = `Check out my code analysis results: Score ${this.currentAnalysis.result.overallScore}/10`;
+	    
+	    // Check if Web Share API is available
+	    if (navigator.share) {
+	        navigator.share({
+	            title: 'Smart Code Review Results',
+	            text: shareText,
+	            url: shareUrl
+	        }).then(() => {
+	            this.showToast('Results shared successfully', 'success');
+	            this.trackEvent('results_shared', {
+	                event_category: 'analysis',
+	                event_label: 'web_share_api'
+	            });
+	        }).catch((error) => {
+	            console.log('Error sharing:', error);
+	            this.copyToClipboard(shareUrl);
+	        });
+	    } else {
+	        // Fallback to copy to clipboard
+	        this.copyToClipboard(shareUrl);
+	    }
+	}
+
+	/**
+	 * Copy text to clipboard
+	 */
+	copyToClipboard(text) {
+	    const textarea = document.createElement('textarea');
+	    textarea.value = text;
+	    textarea.style.position = 'fixed';
+	    textarea.style.opacity = '0';
+	    document.body.appendChild(textarea);
+	    textarea.select();
+	    
+	    try {
+	        document.execCommand('copy');
+	        this.showToast('Link copied to clipboard!', 'success');
+	        this.trackEvent('link_copied', {
+	            event_category: 'analysis',
+	            event_label: 'clipboard'
+	        });
+	    } catch (err) {
+	        console.error('Failed to copy:', err);
+	        this.showToast('Failed to copy link', 'error');
+	    }
+	    
+	    document.body.removeChild(textarea);
+	}
 	/**
 	 * Generate and download PDF report with branded design
 	 */
@@ -1760,33 +1846,45 @@ class SmartCodeReviewApp {
 	            });
 	        }
 	        
-	        // Recommendations
-	        if (result.suggestions && result.suggestions.length > 0) {
-	            if (yPos > 230) {
-	                doc.addPage();
-	                yPos = 20;
-	            }
-	            
-	            doc.setFontSize(14);
-	            doc.setFont('helvetica', 'bold');
-	            doc.text('Recommendations', 20, yPos);
-	            yPos += 10;
-	            
-	            doc.setFontSize(10);
-	            doc.setFont('helvetica', 'normal');
-	            
-	            result.suggestions.forEach((suggestion, index) => {
-	                if (yPos > 270) {
-	                    doc.addPage();
-	                    yPos = 20;
-	                }
-	                
-	                const suggestionText = `${index + 1}. ${suggestion}`;
-	                const lines = doc.splitTextToSize(suggestionText, 170);
-	                doc.text(lines, 20, yPos);
-	                yPos += lines.length * 5 + 3;
-	            });
-	        }
+			// Recommendations - Fixed to handle suggestion objects
+			if (result.suggestions && result.suggestions.length > 0) {
+			    if (yPos > 230) {
+			        doc.addPage();
+			        yPos = 20;
+			    }
+			    
+			    doc.setFontSize(14);
+			    doc.setFont('helvetica', 'bold');
+			    doc.text('Recommendations', 20, yPos);
+			    yPos += 10;
+			    
+			    doc.setFontSize(10);
+			    doc.setFont('helvetica', 'normal');
+			    
+			    result.suggestions.forEach((suggestion, index) => {
+			        if (yPos > 270) {
+			            doc.addPage();
+			            yPos = 20;
+			        }
+			        
+			        // Handle both string and object suggestions
+			        let suggestionText;
+			        if (typeof suggestion === 'string') {
+			            suggestionText = `${index + 1}. ${suggestion}`;
+			        } else if (suggestion && typeof suggestion === 'object') {
+			            // Handle suggestion objects
+			            const title = suggestion.title || 'Suggestion';
+			            const description = suggestion.description || suggestion.title || '';
+			            suggestionText = `${index + 1}. ${title}: ${description}`;
+			        }
+			        
+			        if (suggestionText) {
+			            const lines = doc.splitTextToSize(suggestionText, 170);
+			            doc.text(lines, 20, yPos);
+			            yPos += lines.length * 5 + 3;
+			        }
+			    });
+			}
 	        
 	        // Footer on last page
 	        const pageCount = doc.internal.getNumberOfPages();
@@ -1836,27 +1934,53 @@ class SmartCodeReviewApp {
 	/**
 	 * View detailed issue information
 	 */
+	/**
+	 * View detailed issue information
+	 */
 	viewIssueDetails(index) {
+	    if (!this.currentAnalysis || !this.currentAnalysis.result || !this.currentAnalysis.result.issues) {
+	        this.showToast('No analysis data available', 'error');
+	        return;
+	    }
+	    
 	    const issue = this.currentAnalysis.result.issues[index];
-	    if (!issue) return;
+	    if (!issue) {
+	        this.showToast('Issue not found', 'error');
+	        return;
+	    }
 	    
 	    // Create modal with issue details
 	    const modal = document.createElement('div');
 	    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+	    modal.onclick = function(e) {
+	        if (e.target === modal) {
+	            modal.remove();
+	        }
+	    };
+	    
 	    modal.innerHTML = `
 	        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+	            <div class="absolute top-3 right-3">
+	                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+	                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+	                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+	                    </svg>
+	                </button>
+	            </div>
 	            <div class="mt-3">
 	                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-	                    ${issue.title || issue.description}
+	                    ${issue.title || issue.description || 'Code Issue'}
 	                </h3>
 	                
 	                <div class="mt-2 space-y-3">
 	                    <div class="bg-gray-50 p-3 rounded">
 	                        <p class="text-sm font-medium text-gray-700">Severity</p>
-	                        <p class="text-lg font-bold ${issue.severity === 'CRITICAL' ? 'text-red-600' : 
-	                                                     issue.severity === 'HIGH' ? 'text-orange-600' : 
-	                                                     issue.severity === 'MEDIUM' ? 'text-yellow-600' : 'text-green-600'}">
-	                            ${issue.severity}
+	                        <p class="text-lg font-bold ${
+	                            issue.severity === 'CRITICAL' ? 'text-red-600' : 
+	                            issue.severity === 'HIGH' ? 'text-orange-600' : 
+	                            issue.severity === 'MEDIUM' ? 'text-yellow-600' : 'text-green-600'
+	                        }">
+	                            ${issue.severity || 'MEDIUM'}
 	                        </p>
 	                    </div>
 	                    
@@ -1865,10 +1989,12 @@ class SmartCodeReviewApp {
 	                        <p class="text-sm text-gray-900">${issue.category || 'General'}</p>
 	                    </div>
 	                    
-	                    <div class="bg-gray-50 p-3 rounded">
-	                        <p class="text-sm font-medium text-gray-700">Description</p>
-	                        <p class="text-sm text-gray-900">${issue.description}</p>
-	                    </div>
+	                    ${issue.description ? `
+	                        <div class="bg-gray-50 p-3 rounded">
+	                            <p class="text-sm font-medium text-gray-700">Description</p>
+	                            <p class="text-sm text-gray-900">${issue.description}</p>
+	                        </div>
+	                    ` : ''}
 	                    
 	                    ${issue.fileName ? `
 	                        <div class="bg-gray-50 p-3 rounded">
@@ -1896,7 +2022,7 @@ class SmartCodeReviewApp {
 	                </div>
 	                
 	                <div class="mt-5 sm:mt-6">
-	                    <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+	                    <button onclick="this.closest('.fixed').remove()" 
 	                            class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
 	                        Close
 	                    </button>

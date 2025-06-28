@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.io.ByteArrayOutputStream;
@@ -13,6 +16,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 
 /**
  * Code Analysis Service
@@ -41,6 +45,9 @@ public class CodeAnalysisService {
     
     @Autowired
     private DynamoDBAnalysisStorage dynamoDBStorage;
+    
+    @Autowired
+    private SQSBedrockService sqsService;
     
     /**
      * Analyze uploaded ZIP file
@@ -251,16 +258,45 @@ public class CodeAnalysisService {
 
             updateAnalysisProgress(analysisId, 40, "Extracting code from ZIP...");
 
-            // Extract code from byte array
-            String extractedCode = extractCodeFromZipBytes(fileContent);
+            // Extract code from byte array and count lines
+            String extractedCode = extractCodeFromZipBytes(fileContent, analysisId);
+            
+            // Count lines of code
+            int linesOfCode = extractedCode.split("\n").length;
+            logger.info("Extracted {} lines of code from ZIP", linesOfCode);
 
             updateAnalysisProgress(analysisId, 60, "Running static analysis...");
 
             updateAnalysisProgress(analysisId, 80, "Running AI analysis...");
 
-            // Submit to Bedrock processing queue with existing analysis ID
-            bedrockService.submitAnalysisWithId(analysisId, extractedCode, request.getLanguage());
-
+            // Create metadata to pass to SQS
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("fileName", filename);
+            metadata.put("fileSize", fileSize);
+            metadata.put("uploadTimestamp", LocalDateTime.now().toString());
+            metadata.put("linesOfCode", linesOfCode);
+            
+            // Submit to Bedrock processing queue with metadata
+            if (sqsService != null) {
+                sqsService.submitAnalysisRequest(analysisId, extractedCode, request.getLanguage(), metadata);
+            } else {
+                // Fallback to direct Bedrock submission
+                bedrockService.submitAnalysisWithId(analysisId, extractedCode, request.getLanguage());
+            }
+            
+            // Store metadata in analysis response
+            AnalysisResponse currentResponse = analysisStorageService.getAnalysis(analysisId);
+            if (currentResponse != null) {
+                // Create initial result with metadata
+                CodeReviewResult initialResult = new CodeReviewResult();
+                initialResult.setMetadata(metadata);
+                currentResponse.setResult(initialResult);
+                analysisStorageService.storeAnalysis(analysisId, currentResponse);
+                
+                // Also save to DynamoDB
+                dynamoDBStorage.saveAnalysisStatus(analysisId, "QUEUED", "Submitted to processing queue");
+            }
+            
             updateAnalysisProgress(analysisId, 85, "Submitted to AI processing queue");
 
         } catch (Exception e) {
@@ -280,8 +316,23 @@ public class CodeAnalysisService {
             
             updateAnalysisProgress(analysisId, 75, "Running AI analysis...");
             
-            // Submit to Bedrock processing queue with existing analysis ID
-            bedrockService.submitAnalysisWithId(analysisId, code, request.getLanguage());
+            // Count lines for pasted code
+            int linesOfCode = code.split("\n").length;
+            
+            // Create metadata for pasted code
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("fileName", "pasted-code." + (request.getLanguage() != null ? request.getLanguage() : "txt"));
+            metadata.put("analysisType", "code-paste");
+            metadata.put("linesOfCode", linesOfCode);
+            metadata.put("uploadTimestamp", LocalDateTime.now().toString());
+            
+            // Submit to processing queue with metadata
+            if (sqsService != null) {
+                sqsService.submitAnalysisRequest(analysisId, code, request.getLanguage(), metadata);
+            } else {
+                // Fallback to direct Bedrock submission
+                bedrockService.submitAnalysisWithId(analysisId, code, request.getLanguage());
+            }
 
             updateAnalysisProgress(analysisId, 85, "Submitted to AI processing queue");
 
@@ -322,7 +373,7 @@ public class CodeAnalysisService {
     /**
      * Extract code from ZIP bytes
      */
-    private String extractCodeFromZipBytes(byte[] zipContent) {
+    private String extractCodeFromZipBytes(byte[] zipContent, String analysisId) {
         StringBuilder extractedCode = new StringBuilder();
         
         try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipContent))) {

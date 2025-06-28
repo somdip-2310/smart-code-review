@@ -681,6 +681,20 @@ class SmartCodeReviewApp {
 	    return `
 	        <div class="analysis-results">
 	            <!-- Overall Score Card with Enhanced Design -->
+				<!-- File Information Card -->
+				${result.metadata && result.metadata.fileName ? `
+				    <div class="analysis-card bg-gray-50 border border-gray-200 mb-6">
+				        <div class="flex items-center justify-between p-4">
+				            <div>
+				                <h4 class="font-semibold text-gray-700">📁 File Analyzed</h4>
+				                <p class="text-lg text-gray-900">${result.metadata.fileName}</p>
+				            </div>
+				            <div class="text-sm text-gray-500">
+				                ${result.metadata.uploadTimestamp ? new Date(result.metadata.uploadTimestamp).toLocaleString() : ''}
+				            </div>
+				        </div>
+				    </div>
+				` : ''}
 	            <div class="analysis-card bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
 	                <div class="analysis-header">
 	                    <div class="score-circle ${scoreClass} shadow-lg">
@@ -716,7 +730,7 @@ class SmartCodeReviewApp {
 	                        <span class="text-2xl mr-2">📊</span> Quality
 	                    </h4>
 	                    <div class="text-3xl font-bold text-gray-900">${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}</div>
-	                    <p class="text-sm text-gray-600 mt-1">${result.quality?.linesOfCode || 0} lines analyzed</p>
+	                    <p class="text-sm text-gray-600 mt-1">${(result.quality && result.quality.linesOfCode) ? result.quality.linesOfCode : 'N/A'} lines analyzed</p>
 	                </div>
 	            </div>
 	            
@@ -844,9 +858,9 @@ class SmartCodeReviewApp {
 	            <td class="px-4 py-3 text-sm text-gray-900">${lineNumber}</td>
 	            <td class="px-4 py-3 text-sm font-medium text-gray-900">${cveScore}</td>
 	            <td class="px-4 py-3 text-sm">
-	                <button onclick="app.viewIssueDetails(${index})" class="text-indigo-600 hover:text-indigo-900">
-	                    View Details
-	                </button>
+				<button onclick="window.app.viewIssueDetails(${index})" class="text-indigo-600 hover:text-indigo-900 font-medium">
+				    View Details
+				</button>
 	            </td>
 	        </tr>
 	    `;
@@ -1647,7 +1661,13 @@ class SmartCodeReviewApp {
 	    try {
 	        this.showLoading('Generating PDF report...');
 	        
-	        // Create PDF content using jsPDF (add script tag in HTML)
+	        // Check if jsPDF is loaded
+	        if (!window.jspdf) {
+	            this.hideLoading();
+	            this.showToast('PDF library not loaded. Please refresh the page.', 'error');
+	            return;
+	        }
+	        
 	        const { jsPDF } = window.jspdf;
 	        const doc = new jsPDF();
 	        const result = this.currentAnalysis.result;
@@ -1679,6 +1699,11 @@ class SmartCodeReviewApp {
 	        });
 	        doc.text(`Generated: ${reportDate}`, 20, 50);
 	        doc.text(`Analysis ID: ${this.currentAnalysis.analysisId}`, 20, 57);
+	        
+	        // Add file name if available
+	        if (result.metadata && result.metadata.fileName) {
+	            doc.text(`File: ${result.metadata.fileName}`, 20, 64);
+	        }
 	        
 	        // Executive Summary
 	        doc.setFontSize(16);
@@ -1715,7 +1740,8 @@ class SmartCodeReviewApp {
 	        const metrics = [
 	            { label: 'Security Score', value: `${result.security?.securityScore?.toFixed(1) || 'N/A'}/10`, color: [239, 68, 68] },
 	            { label: 'Performance Score', value: `${result.performance?.performanceScore?.toFixed(1) || 'N/A'}/10`, color: [59, 130, 246] },
-	            { label: 'Quality Score', value: `${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}/10`, color: [34, 197, 94] }
+	            { label: 'Quality Score', value: `${result.quality?.maintainabilityScore?.toFixed(1) || 'N/A'}/10`, color: [34, 197, 94] },
+	            { label: 'Lines of Code', value: `${result.quality?.linesOfCode || 'N/A'}`, color: [156, 163, 175] }
 	        ];
 	        
 	        metrics.forEach(metric => {
@@ -1774,41 +1800,59 @@ class SmartCodeReviewApp {
 	                            yPos = 20;
 	                        }
 	                        
-	                        // Issue title
-	                        doc.setFont('helvetica', 'bold');
-	                        doc.text(`${index + 1}. ${issue.title || issue.category}`, 25, yPos);
-	                        yPos += 5;
-	                        
-	                        // Issue details
-	                        doc.setFont('helvetica', 'normal');
-	                        const descLines = doc.splitTextToSize(issue.description, 160);
-	                        doc.text(descLines, 30, yPos);
-	                        yPos += descLines.length * 4;
-	                        
-	                        // File and line info
-	                        if (issue.fileName) {
-	                            doc.setFont('helvetica', 'italic');
-	                            doc.text(`File: ${issue.fileName}${issue.lineNumber ? `, Line: ${issue.lineNumber}` : ''}`, 30, yPos);
-	                            yPos += 5;
-	                        }
-	                        
-	                        // CVE Score if available
-	                        if (issue.cveScore) {
+	                        // Handle both string and object issues
+	                        if (typeof issue === 'string') {
 	                            doc.setFont('helvetica', 'bold');
-	                            doc.text(`CVE Score: ${issue.cveScore}`, 30, yPos);
+	                            doc.text(`${index + 1}. Issue`, 25, yPos);
 	                            yPos += 5;
+	                            doc.setFont('helvetica', 'normal');
+	                            const descLines = doc.splitTextToSize(issue, 160);
+	                            doc.text(descLines, 30, yPos);
+	                            yPos += descLines.length * 4 + 5;
+	                        } else {
+	                            // Issue title
+	                            doc.setFont('helvetica', 'bold');
+	                            doc.text(`${index + 1}. ${issue.title || issue.category || 'Issue'}`, 25, yPos);
+	                            yPos += 5;
+	                            
+	                            // Issue details
+	                            if (issue.description) {
+	                                doc.setFont('helvetica', 'normal');
+	                                const descLines = doc.splitTextToSize(issue.description, 160);
+	                                doc.text(descLines, 30, yPos);
+	                                yPos += descLines.length * 4;
+	                            }
+	                            
+	                            // File and line info
+	                            if (issue.fileName) {
+	                                doc.setFont('helvetica', 'italic');
+	                                doc.text(`File: ${issue.fileName}${issue.lineNumber ? `, Line: ${issue.lineNumber}` : ''}`, 30, yPos);
+	                                yPos += 5;
+	                            }
+	                            
+	                            // CVE Score if available
+	                            if (issue.cveScore) {
+	                                doc.setFont('helvetica', 'bold');
+	                                doc.text(`CVE Score: ${issue.cveScore}`, 30, yPos);
+	                                yPos += 5;
+	                            }
+	                            
+	                            yPos += 5; // Space between issues
 	                        }
-	                        
-	                        yPos += 5; // Space between issues
 	                    });
 	                    
 	                    yPos += 5; // Space between severity levels
 	                }
 	            });
+	        } else {
+	            doc.setFontSize(10);
+	            doc.setFont('helvetica', 'italic');
+	            doc.text('No issues found.', 25, yPos);
+	            yPos += 10;
 	        }
 	        
 	        // Security Analysis Details
-	        if (result.security?.detailedVulnerabilities?.length > 0) {
+	        if (result.security?.vulnerabilities?.length > 0) {
 	            if (yPos > 230) {
 	                doc.addPage();
 	                yPos = 20;
@@ -1819,7 +1863,7 @@ class SmartCodeReviewApp {
 	            doc.text('Security Vulnerabilities', 20, yPos);
 	            yPos += 10;
 	            
-	            result.security.detailedVulnerabilities.forEach(vuln => {
+	            result.security.vulnerabilities.forEach(vuln => {
 	                if (yPos > 250) {
 	                    doc.addPage();
 	                    yPos = 20;
@@ -1827,13 +1871,15 @@ class SmartCodeReviewApp {
 	                
 	                doc.setFontSize(10);
 	                doc.setFont('helvetica', 'bold');
-	                doc.text(vuln.type, 25, yPos);
+	                doc.text(vuln.type || 'Vulnerability', 25, yPos);
 	                yPos += 5;
 	                
-	                doc.setFont('helvetica', 'normal');
-	                const vulnDesc = doc.splitTextToSize(vuln.description, 160);
-	                doc.text(vulnDesc, 30, yPos);
-	                yPos += vulnDesc.length * 4;
+	                if (vuln.description) {
+	                    doc.setFont('helvetica', 'normal');
+	                    const vulnDesc = doc.splitTextToSize(vuln.description, 160);
+	                    doc.text(vulnDesc, 30, yPos);
+	                    yPos += vulnDesc.length * 4;
+	                }
 	                
 	                if (vuln.remediation) {
 	                    doc.setFont('helvetica', 'italic');
@@ -1846,45 +1892,45 @@ class SmartCodeReviewApp {
 	            });
 	        }
 	        
-			// Recommendations - Fixed to handle suggestion objects
-			if (result.suggestions && result.suggestions.length > 0) {
-			    if (yPos > 230) {
-			        doc.addPage();
-			        yPos = 20;
-			    }
-			    
-			    doc.setFontSize(14);
-			    doc.setFont('helvetica', 'bold');
-			    doc.text('Recommendations', 20, yPos);
-			    yPos += 10;
-			    
-			    doc.setFontSize(10);
-			    doc.setFont('helvetica', 'normal');
-			    
-			    result.suggestions.forEach((suggestion, index) => {
-			        if (yPos > 270) {
-			            doc.addPage();
-			            yPos = 20;
-			        }
-			        
-			        // Handle both string and object suggestions
-			        let suggestionText;
-			        if (typeof suggestion === 'string') {
-			            suggestionText = `${index + 1}. ${suggestion}`;
-			        } else if (suggestion && typeof suggestion === 'object') {
-			            // Handle suggestion objects
-			            const title = suggestion.title || 'Suggestion';
-			            const description = suggestion.description || suggestion.title || '';
-			            suggestionText = `${index + 1}. ${title}: ${description}`;
-			        }
-			        
-			        if (suggestionText) {
-			            const lines = doc.splitTextToSize(suggestionText, 170);
-			            doc.text(lines, 20, yPos);
-			            yPos += lines.length * 5 + 3;
-			        }
-			    });
-			}
+	        // Recommendations - Fixed to handle suggestion objects
+	        if (result.suggestions && result.suggestions.length > 0) {
+	            if (yPos > 230) {
+	                doc.addPage();
+	                yPos = 20;
+	            }
+	            
+	            doc.setFontSize(14);
+	            doc.setFont('helvetica', 'bold');
+	            doc.text('Recommendations', 20, yPos);
+	            yPos += 10;
+	            
+	            doc.setFontSize(10);
+	            doc.setFont('helvetica', 'normal');
+	            
+	            result.suggestions.forEach((suggestion, index) => {
+	                if (yPos > 270) {
+	                    doc.addPage();
+	                    yPos = 20;
+	                }
+	                
+	                // Handle both string and object suggestions
+	                let suggestionText;
+	                if (typeof suggestion === 'string') {
+	                    suggestionText = `${index + 1}. ${suggestion}`;
+	                } else if (suggestion && typeof suggestion === 'object') {
+	                    // Handle suggestion objects
+	                    const title = suggestion.title || 'Suggestion';
+	                    const description = suggestion.description || suggestion.title || '';
+	                    suggestionText = `${index + 1}. ${title}: ${description}`;
+	                }
+	                
+	                if (suggestionText) {
+	                    const lines = doc.splitTextToSize(suggestionText, 170);
+	                    doc.text(lines, 20, yPos);
+	                    yPos += lines.length * 5 + 3;
+	                }
+	            });
+	        }
 	        
 	        // Footer on last page
 	        const pageCount = doc.internal.getNumberOfPages();
@@ -1913,7 +1959,7 @@ class SmartCodeReviewApp {
 	    } catch (error) {
 	        console.error('Error generating PDF:', error);
 	        this.hideLoading();
-	        this.showToast('Failed to generate PDF report', 'error');
+	        this.showToast('Failed to generate PDF report. Please try again.', 'error');
 	    }
 	}
 
@@ -1934,19 +1980,29 @@ class SmartCodeReviewApp {
 	/**
 	 * View detailed issue information
 	 */
-	/**
-	 * View detailed issue information
-	 */
 	viewIssueDetails(index) {
 	    if (!this.currentAnalysis || !this.currentAnalysis.result || !this.currentAnalysis.result.issues) {
 	        this.showToast('No analysis data available', 'error');
 	        return;
 	    }
 	    
-	    const issue = this.currentAnalysis.result.issues[index];
-	    if (!issue) {
+	    const issues = this.currentAnalysis.result.issues;
+	    if (!issues[index]) {
 	        this.showToast('Issue not found', 'error');
 	        return;
+	    }
+	    
+	    // Handle both string and object issues
+	    let issue;
+	    if (typeof issues[index] === 'string') {
+	        issue = {
+	            title: `Issue ${index + 1}`,
+	            description: issues[index],
+	            severity: 'MEDIUM',
+	            category: 'General'
+	        };
+	    } else {
+	        issue = issues[index];
 	    }
 	    
 	    // Create modal with issue details
@@ -1961,7 +2017,7 @@ class SmartCodeReviewApp {
 	    modal.innerHTML = `
 	        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
 	            <div class="absolute top-3 right-3">
-	                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+	                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
 	                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 	                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
 	                    </svg>
@@ -2023,7 +2079,7 @@ class SmartCodeReviewApp {
 	                
 	                <div class="mt-5 sm:mt-6">
 	                    <button onclick="this.closest('.fixed').remove()" 
-	                            class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+	                            class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm transition-colors">
 	                        Close
 	                    </button>
 	                </div>

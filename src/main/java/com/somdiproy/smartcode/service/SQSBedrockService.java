@@ -149,7 +149,7 @@ public class SQSBedrockService {
         }
     }
    
-    public String submitAnalysisRequest(String analysisId, String code, String language) {
+    public String submitAnalysisRequest(String analysisId, String code, String language, Map<String, Object> metadata) {
         try {
             // Calculate dynamic delay based on current queue state
             int messageDelay = calculateMessageDelay();
@@ -160,6 +160,11 @@ public class SQSBedrockService {
             message.put("language", language);
             message.put("timestamp", System.currentTimeMillis());
             message.put("scheduledProcessingTime", System.currentTimeMillis() + (messageDelay * 1000L));
+            
+            // Add metadata if provided
+            if (metadata != null) {
+                message.put("metadata", metadata);
+            }
             
             // Calculate message size (rough estimate including JSON overhead)
             int estimatedMessageSize = code.length() + 1000; // 1KB for metadata
@@ -226,6 +231,11 @@ public class SQSBedrockService {
             logger.error("Error submitting to SQS", e);
             throw new RuntimeException("Failed to submit analysis request", e);
         }
+    }
+    
+    // Overloaded method for backward compatibility
+    public String submitAnalysisRequest(String analysisId, String code, String language) {
+        return submitAnalysisRequest(analysisId, code, language, null);
     }
     
     /**

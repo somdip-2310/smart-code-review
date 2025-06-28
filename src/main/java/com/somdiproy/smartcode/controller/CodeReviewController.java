@@ -286,6 +286,24 @@ public class CodeReviewController {
     }
     
     /**
+     * Generate PDF report endpoint
+     */
+    @GetMapping("/analysis/{analysisId}/report")
+    public ResponseEntity<Map<String, Object>> generateReport(
+            @PathVariable String analysisId,
+            @RequestParam(required = false) String sessionToken) {
+        
+        logger.info("PDF report requested for analysis: {}", analysisId);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "demo_limitation");
+        response.put("message", "PDF generation is a premium feature. Using client-side generation for demo.");
+        response.put("analysisId", analysisId);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
      * Generate PDF report for analysis
      */
     @GetMapping("/analysis/{analysisId}/report")

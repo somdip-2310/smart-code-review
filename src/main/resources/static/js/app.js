@@ -8,6 +8,15 @@ class SmartCodeReviewApp {
         this.API_BASE = window.location.origin.replace(':8083', ':8083'); // Ensure port 8083
         this.sessionData = null;
         this.currentAnalysis = null;
+		this.achievements = {
+		            firstAnalysis: { name: "First Steps", icon: "🎯", points: 10, unlocked: false },
+		            securityExpert: { name: "Security Expert", icon: "🔒", points: 25, unlocked: false },
+		            performanceGuru: { name: "Performance Guru", icon: "⚡", points: 30, unlocked: false },
+		            qualityMaster: { name: "Quality Master", icon: "⭐", points: 50, unlocked: false },
+		            multiAnalyzer: { name: "Multi-Analyzer", icon: "🔄", points: 40, unlocked: false }
+		        };
+		        this.totalPoints = 0;
+		        this.milestones = new Set();
         this.timerInterval = null;
         
         this.init();
@@ -526,6 +535,7 @@ class SmartCodeReviewApp {
         const progressText = document.getElementById('progress-text');
         
         if (progressContainer) {
+			this.initializeRealtimeUpdates(analysisId);
             progressContainer.classList.remove('hidden');
         }
         
@@ -588,7 +598,53 @@ class SmartCodeReviewApp {
             this.hideLoading();
         }, 300000);
     }
-    
+	/**
+	     * Initialize real-time analysis updates
+	     */
+	    initializeRealtimeUpdates(analysisId) {
+	        // Store update intervals for cleanup
+	        if (!this.updateIntervals) {
+	            this.updateIntervals = new Map();
+	        }
+	        
+	        // Poll more frequently with varied content
+	        let updateInterval = setInterval(() => {
+	            this.fetchPartialResults(analysisId);
+	        }, 3000);
+	        
+	        // Store interval for cleanup
+	        this.updateIntervals.set(analysisId, updateInterval);
+	    }
+
+	    async fetchPartialResults(analysisId) {
+	        try {
+	            const response = await fetch(`${this.API_BASE}/api/v1/code-review/partial/${analysisId}?sessionToken=${this.sessionData.sessionToken || this.sessionData.token}`);
+	            if (response.ok) {
+	                const data = await response.json();
+	                this.updatePartialResults(data);
+	            }
+	        } catch (error) {
+	            console.error('Error fetching partial results:', error);
+	        }
+	    }
+	    
+	    updatePartialResults(data) {
+	        // Update UI with partial results
+	        const partialContainer = document.getElementById('partial-results');
+	        if (partialContainer && data.partial) {
+	            partialContainer.innerHTML = `
+	                <div class="animate-fadeIn">
+	                    <h4 class="font-semibold mb-2">🔄 Live Analysis Update</h4>
+	                    <p class="text-gray-600">${data.partial.message}</p>
+	                    ${data.partial.findings ? `
+	                        <div class="mt-2 text-sm text-gray-500">
+	                            Found ${data.partial.findings} potential improvements so far...
+	                        </div>
+	                    ` : ''}
+	                </div>
+	            `;
+	        }
+	    }
     /**
      * Display analysis results in the UI
      */
@@ -606,7 +662,8 @@ class SmartCodeReviewApp {
         
         // Initialize interactive elements in results
         this.initializeResultsInteractivity();
-        
+		this.checkAchievements(analysisData.result);
+		this.saveToHistory(analysisData);
         // Scroll to results
         resultsContainer.scrollIntoView({ behavior: 'smooth' });
     }
@@ -931,33 +988,81 @@ class SmartCodeReviewApp {
         }, 1000);
     }
     
-    updateTimerDisplay() {
-        if (!this.sessionData) return;
-        
-        const now = Date.now();
-        const expiresAt = this.sessionData.expiresAt;
-        const remainingMs = expiresAt - now;
-        
-        if (remainingMs <= 0) {
-            this.handleSessionExpired();
-            return;
-        }
-        
-        const remainingMinutes = Math.floor(remainingMs / 60000);
-        const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
-        
-        const timerDisplay = document.getElementById('timer-display');
-        if (timerDisplay) {
-            timerDisplay.textContent = `${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-            
-            // Change color when time is running low
-            const timerElement = document.getElementById('session-timer');
-            if (remainingMinutes < 2) {
-                timerElement?.classList.add('text-red-600', 'bg-red-50');
-                timerElement?.classList.remove('text-blue-600', 'bg-blue-50');
-            }
-        }
-    }
+	updateTimerDisplay() {
+	        if (!this.sessionData) return;
+	        
+	        const now = Date.now();
+	        const expiresAt = this.sessionData.expiresAt;
+	        const remainingMs = expiresAt - now;
+	        
+	        if (remainingMs <= 0) {
+	            this.handleSessionExpired();
+	            return;
+	        }
+	        
+	        const totalMinutes = 20;
+	        const remainingMinutes = Math.floor(remainingMs / 60000);
+	        const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
+	        const elapsedMinutes = totalMinutes - remainingMinutes;
+	        
+	        // Milestone notifications
+	        if (elapsedMinutes === 5 && !this.milestones.has(5)) {
+	            this.showToast('🎉 5 minutes in! Keep analyzing for better insights!', 'success');
+	            this.milestones.add(5);
+	            this.unlockFeature('advanced-metrics');
+	        }
+	        
+	        if (elapsedMinutes === 10 && !this.milestones.has(10)) {
+	            this.showToast('⭐ Halfway there! Advanced features unlocked!', 'success');
+	            this.milestones.add(10);
+	            this.unlockFeature('comparison-mode');
+	        }
+	        
+	        if (elapsedMinutes === 15 && !this.milestones.has(15)) {
+	            this.showToast('🚀 Pro level! You\'re getting the most out of Smart Code Review!', 'success');
+	            this.milestones.add(15);
+	            this.unlockFeature('export-features');
+	        }
+	        
+	        // Update display with enhanced formatting
+	        const timerDisplay = document.getElementById('timer-display');
+	        if (timerDisplay) {
+	            timerDisplay.textContent = `${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+	            
+	            // Progressive color changes
+	            const timerElement = document.getElementById('session-timer');
+	            if (timerElement) {
+	                // Remove all color classes first
+	                timerElement.classList.remove('text-green-600', 'bg-green-50', 'text-blue-600', 'bg-blue-50', 
+	                                            'text-yellow-600', 'bg-yellow-50', 'text-red-600', 'bg-red-50');
+	                
+	                if (remainingMinutes > 15) {
+	                    timerElement.classList.add('text-green-600', 'bg-green-50');
+	                } else if (remainingMinutes > 10) {
+	                    timerElement.classList.add('text-blue-600', 'bg-blue-50');
+	                } else if (remainingMinutes > 5) {
+	                    timerElement.classList.add('text-yellow-600', 'bg-yellow-50');
+	                } else {
+	                    timerElement.classList.add('text-red-600', 'bg-red-50');
+	                }
+	            }
+	        }
+	        
+	        // Update progress bar if exists
+	        const progressBar = document.getElementById('session-progress-bar');
+	        if (progressBar) {
+	            const progressPercent = (elapsedMinutes / totalMinutes) * 100;
+	            progressBar.style.width = `${progressPercent}%`;
+	        }
+	    }
+	    
+	    unlockFeature(featureName) {
+	        const featureElements = document.querySelectorAll(`[data-feature="${featureName}"]`);
+	        featureElements.forEach(el => {
+	            el.classList.remove('locked', 'opacity-50');
+	            el.classList.add('unlocked', 'animate-pulse');
+	        });
+	    }
     
     handleSessionExpired() {
         this.clearSession();
@@ -1605,123 +1710,294 @@ class SmartCodeReviewApp {
             }
         });
     }
-    
-    initializeResultsInteractivity() {
-        // Add click handlers for expandable sections
-        const expandableElements = document.querySelectorAll('[data-expandable]');
-        expandableElements.forEach(element => {
-            element.addEventListener('click', (e) => {
-                const target = e.target.closest('[data-expandable]');
-                const content = target.querySelector('[data-expandable-content]');
-                
-                if (content) {
-                    const isExpanded = !content.classList.contains('hidden');
-                    content.classList.toggle('hidden');
-                    
-                    const icon = target.querySelector('.expand-icon');
-                    if (icon) {
-                        icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
-                    }
-                }
-            });
-        });
-        
-        // Add copy-to-clipboard functionality
-        const copyButtons = document.querySelectorAll('[data-copy]');
-        copyButtons.forEach(button => {
-            button.addEventListener('click', (e) => {
-                const textToCopy = e.target.dataset.copy || e.target.closest('[data-copy]').dataset.copy;
-                
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(textToCopy).then(() => {
-                        this.showToast('Copied to clipboard', 'success', 2000);
-                    });
-                } else {
-                    // Fallback for older browsers
-                    const textArea = document.createElement('textarea');
-                    textArea.value = textToCopy;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    this.showToast('Copied to clipboard', 'success', 2000);
-                }
-            });
-        });
-    }
-}
+	initializeResultsInteractivity() {
+	        // Add click handlers for expandable sections
+	        const expandableElements = document.querySelectorAll('[data-expandable]');
+	        expandableElements.forEach(element => {
+	            element.addEventListener('click', (e) => {
+	                const target = e.target.closest('[data-expandable]');
+	                const content = target.querySelector('[data-expandable-content]');
+	                
+	                if (content) {
+	                    const isExpanded = !content.classList.contains('hidden');
+	                    content.classList.toggle('hidden');
+	                    
+	                    const icon = target.querySelector('.expand-icon');
+	                    if (icon) {
+	                        icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+	                    }
+	                }
+	            });
+	        });
+	        
+	        // Add copy-to-clipboard functionality
+	        const copyButtons = document.querySelectorAll('[data-copy]');
+	        copyButtons.forEach(button => {
+	            button.addEventListener('click', (e) => {
+	                const textToCopy = e.target.dataset.copy || e.target.closest('[data-copy]').dataset.copy;
+	                
+	                if (navigator.clipboard) {
+	                    navigator.clipboard.writeText(textToCopy).then(() => {
+	                        this.showToast('Copied to clipboard', 'success', 2000);
+	                    });
+	                } else {
+	                    // Fallback for older browsers
+	                    const textArea = document.createElement('textarea');
+	                    textArea.value = textToCopy;
+	                    document.body.appendChild(textArea);
+	                    textArea.select();
+	                    document.execCommand('copy');
+	                    document.body.removeChild(textArea);
+	                    this.showToast('Copied to clipboard', 'success', 2000);
+	                }
+	            });
+	        });
+	    }
 
-// Global app instance
-let app;
+	    checkAchievements(analysisResult) {
+	        const unlockedAchievements = [];
+	        
+	        // First analysis achievement
+	        if (this.sessionData.analysisCount === 1 && !this.achievements.firstAnalysis.unlocked) {
+	            this.achievements.firstAnalysis.unlocked = true;
+	            unlockedAchievements.push(this.achievements.firstAnalysis);
+	        }
+	        
+	        // Security expert achievement
+	        if (analysisResult.security?.securityScore >= 9 && !this.achievements.securityExpert.unlocked) {
+	            this.achievements.securityExpert.unlocked = true;
+	            unlockedAchievements.push(this.achievements.securityExpert);
+	        }
+	        
+	        // Performance guru achievement
+	        if (analysisResult.performance?.performanceScore >= 9 && !this.achievements.performanceGuru.unlocked) {
+	            this.achievements.performanceGuru.unlocked = true;
+	            unlockedAchievements.push(this.achievements.performanceGuru);
+	        }
+	        
+	        // Quality master achievement
+	        if (analysisResult.overallScore >= 9 && !this.achievements.qualityMaster.unlocked) {
+	            this.achievements.qualityMaster.unlocked = true;
+	            unlockedAchievements.push(this.achievements.qualityMaster);
+	        }
+	        
+	        // Multi-analyzer achievement
+	        if (this.sessionData.analysisCount >= 3 && !this.achievements.multiAnalyzer.unlocked) {
+	            this.achievements.multiAnalyzer.unlocked = true;
+	            unlockedAchievements.push(this.achievements.multiAnalyzer);
+	        }
+	        
+	        if (unlockedAchievements.length > 0) {
+	            this.showAchievementNotification(unlockedAchievements);
+	        }
+	    }
+	    
+	    showAchievementNotification(achievements) {
+	        achievements.forEach((achievement, index) => {
+	            setTimeout(() => {
+	                const notification = document.createElement('div');
+	                notification.className = 'achievement-notification';
+	                notification.innerHTML = `
+	                    <div class="bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-lg shadow-xl animate-slideInRight">
+	                        <div class="flex items-center">
+	                            <span class="text-3xl mr-3">${achievement.icon}</span>
+	                            <div>
+	                                <h4 class="font-bold">Achievement Unlocked!</h4>
+	                                <p class="text-sm">${achievement.name} (+${achievement.points} points)</p>
+	                            </div>
+	                        </div>
+	                    </div>
+	                `;
+	                
+	                document.body.appendChild(notification);
+	                
+	                // Position it
+	                notification.style.position = 'fixed';
+	                notification.style.top = `${80 + (index * 100)}px`;
+	                notification.style.right = '20px';
+	                notification.style.zIndex = '9999';
+	                
+	                // Remove after animation
+	                setTimeout(() => notification.remove(), 5000);
+	                
+	                // Update total points
+	                this.totalPoints += achievement.points;
+	                this.updatePointsDisplay();
+	            }, index * 1000);
+	        });
+	    }
+	    
+	    updatePointsDisplay() {
+	        const pointsDisplay = document.getElementById('user-points');
+	        if (pointsDisplay) {
+	            pointsDisplay.textContent = `${this.totalPoints} points`;
+	        }
+	    }
+	    
+	    async loadAnalysisHistory() {
+	        try {
+	            const historyContainer = document.getElementById('history-container');
+	            if (!historyContainer) return;
+	            
+	            // Get from localStorage for demo
+	            const analyses = JSON.parse(localStorage.getItem('analysis_history') || '[]');
+	            
+	            if (analyses.length === 0) {
+	                historyContainer.innerHTML = '<p class="text-gray-500">No analyses yet. Start analyzing code!</p>';
+	                return;
+	            }
+	            
+	            historyContainer.innerHTML = analyses.map((analysis, index) => `
+	                <div class="history-item p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors" 
+	                     onclick="app.viewAnalysis('${analysis.id}')">
+	                    <div class="flex justify-between items-start">
+	                        <div>
+	                            <h4 class="font-semibold">${analysis.language} Analysis #${analyses.length - index}</h4>
+	                            <p class="text-sm text-gray-600">${new Date(analysis.timestamp).toLocaleString()}</p>
+	                            <div class="flex items-center mt-2">
+	                                <div class="score-badge ${this.getScoreClass(analysis.score)}">
+	                                    ${analysis.score}/10
+	                                </div>
+	                                <span class="text-sm text-gray-500 ml-2">
+	                                    ${analysis.issues} issues • ${analysis.lines} lines
+	                                </span>
+	                            </div>
+	                        </div>
+	                        <button class="text-blue-600 hover:text-blue-700" 
+	                                onclick="event.stopPropagation(); app.compareWithCurrent('${analysis.id}')">
+	                            Compare
+	                        </button>
+	                    </div>
+	                </div>
+	            `).join('');
+	            
+	            document.getElementById('history-count').textContent = `${analyses.length} analyses`;
+	            
+	            if (analyses.length > 10) {
+	                document.getElementById('load-more-btn').classList.remove('hidden');
+	            }
+	        } catch (error) {
+	            console.error('Error loading history:', error);
+	        }
+	    }
+	    
+	    saveToHistory(analysisData) {
+	        try {
+	            const history = JSON.parse(localStorage.getItem('analysis_history') || '[]');
+	            const historyItem = {
+	                id: analysisData.analysisId,
+	                timestamp: Date.now(),
+	                language: analysisData.language || 'Unknown',
+	                score: analysisData.result?.overallScore || 0,
+	                issues: analysisData.result?.issues?.length || 0,
+	                lines: analysisData.result?.quality?.linesOfCode || 0,
+	                summary: analysisData.result?.summary || ''
+	            };
+	            
+	            history.unshift(historyItem);
+	            
+	            // Keep only last 50 analyses
+	            if (history.length > 50) {
+	                history.pop();
+	            }
+	            
+	            localStorage.setItem('analysis_history', JSON.stringify(history));
+	        } catch (error) {
+	            console.error('Error saving to history:', error);
+	        }
+	    }
+	    
+	    loadMoreHistory() {
+	        // Implementation for loading more history items
+	        this.showToast('Loading more history...', 'info');
+	    }
+	    
+	    viewAnalysis(analysisId) {
+	        window.location.href = `/results/${analysisId}`;
+	    }
+	    
+	    compareWithCurrent(analysisId) {
+	        if (!this.currentAnalysis) {
+	            this.showToast('No current analysis to compare with', 'warning');
+	            return;
+	        }
+	        
+	        window.location.href = `/compare/${this.currentAnalysis.analysisId}/${analysisId}`;
+	    }
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    app = new SmartCodeReviewApp();
-	// Expose session management functions
-	window.app = app;
-    // Expose global functions for HTML onclick handlers
-    window.startDemo = () => {
-        const modal = document.getElementById('session-modal');
-        if (modal) {
-            modal.classList.remove('hidden');
-        }
-        
-        app.trackEvent('demo_start_clicked', {
-            event_category: 'engagement',
-            event_label: 'main_cta'
-        });
-    };
-    
-    window.closeSessionModal = () => {
-        app.closeAllModals();
-    };
-    
-    // Handle browser back/forward buttons
-    window.addEventListener('popstate', (event) => {
-        if (event.state && event.state.tab) {
-            app.switchTab(event.state.tab);
-        }
-    });
-    
-    // Handle page visibility changes
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            app.trackEvent('page_hidden', {
-                event_category: 'engagement',
-                event_label: 'tab_inactive'
-            });
-        } else {
-            app.trackEvent('page_visible', {
-                event_category: 'engagement',
-                event_label: 'tab_active'
-            });
-        }
-    });
-    
-    // Handle beforeunload for session cleanup
-    window.addEventListener('beforeunload', () => {
-        if (app.sessionData) {
-            app.trackEvent('session_exit', {
-                event_category: 'session',
-                event_label: 'page_unload'
-            });
-        }
-    });
-});
+	} // End of SmartCodeReviewApp class
 
-// Export for module usage if needed
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = SmartCodeReviewApp;
-}
+	// Global app instance
+	let app;
 
-// Initialize app on load
-document.addEventListener('DOMContentLoaded', function() {
-    if (!window.smartCodeReviewApp) {
-        window.smartCodeReviewApp = new SmartCodeReviewApp();
-        // Also set window.app for backward compatibility
-        window.app = window.smartCodeReviewApp;
-    }
-});
+	// Initialize app when DOM is loaded
+	document.addEventListener('DOMContentLoaded', () => {
+	    app = new SmartCodeReviewApp();
+	    // Expose session management functions
+	    window.app = app;
+	    // Expose global functions for HTML onclick handlers
+	    window.startDemo = () => {
+	        const modal = document.getElementById('session-modal');
+	        if (modal) {
+	            modal.classList.remove('hidden');
+	        }
+	        
+	        app.trackEvent('demo_start_clicked', {
+	            event_category: 'engagement',
+	            event_label: 'main_cta'
+	        });
+	    };
+	    
+	    window.closeSessionModal = () => {
+	        app.closeAllModals();
+	    };
+	    
+	    // Handle browser back/forward buttons
+	    window.addEventListener('popstate', (event) => {
+	        if (event.state && event.state.tab) {
+	            app.switchTab(event.state.tab);
+	        }
+	    });
+	    
+	    // Handle page visibility changes
+	    document.addEventListener('visibilitychange', () => {
+	        if (document.hidden) {
+	            app.trackEvent('page_hidden', {
+	                event_category: 'engagement',
+	                event_label: 'tab_inactive'
+	            });
+	        } else {
+	            app.trackEvent('page_visible', {
+	                event_category: 'engagement',
+	                event_label: 'tab_active'
+	            });
+	        }
+	    });
+	    
+	    // Handle beforeunload for session cleanup
+	    window.addEventListener('beforeunload', () => {
+	        if (app.sessionData) {
+	            app.trackEvent('session_exit', {
+	                event_category: 'session',
+	                event_label: 'page_unload'
+	            });
+	        }
+	    });
+	});
 
-// Make SmartCodeReviewApp available globally
-window.SmartCodeReviewApp = SmartCodeReviewApp;
+	// Export for module usage if needed
+	if (typeof module !== 'undefined' && module.exports) {
+	    module.exports = SmartCodeReviewApp;
+	}
+
+	// Initialize app on load
+	document.addEventListener('DOMContentLoaded', function() {
+	    if (!window.smartCodeReviewApp) {
+	        window.smartCodeReviewApp = new SmartCodeReviewApp();
+	        // Also set window.app for backward compatibility
+	        window.app = window.smartCodeReviewApp;
+	    }
+	});
+
+	// Make SmartCodeReviewApp available globally
+	window.SmartCodeReviewApp = SmartCodeReviewApp;

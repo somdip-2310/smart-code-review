@@ -1,5 +1,6 @@
 package com.somdiproy.smartcode.dto;
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
@@ -8,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * 
  * @author Somdip Roy
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Issue {
     
     private String id;

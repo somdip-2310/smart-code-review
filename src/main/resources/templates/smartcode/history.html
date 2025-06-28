@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{layout/base :: head}">
+    <title>Analysis History - Smart Code Review</title>
+</head>
+<body>
+    <header th:replace="~{layout/header :: header}"></header>
+    
+    <main class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold mb-6">Your Analysis History</h1>
+            
+            <div class="analysis-history mt-6">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Recent Analyses</h3>
+                        <span id="history-count" class="text-sm text-gray-600">Loading...</span>
+                    </div>
+                    
+                    <div class="space-y-3" id="history-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                    
+                    <button onclick="app.loadMoreHistory()" 
+                            id="load-more-btn"
+                            class="mt-4 text-blue-600 hover:text-blue-700 font-medium hidden">
+                        Load More History →
+                    </button>
+                </div>
+                
+                <!-- Comparison Feature -->
+                <div class="mt-6 bg-blue-50 rounded-lg p-6" data-feature="comparison-mode">
+                    <h3 class="text-lg font-semibold mb-4">Compare Analyses</h3>
+                    <p class="text-gray-700 mb-4">Select two analyses to compare improvements</p>
+                    <div id="comparison-selector" class="grid grid-cols-2 gap-4">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer th:replace="~{layout/footer :: footer}"></footer>
+    
+    <script src="/js/app.js" th:src="@{/js/app.js}"></script>
+    <script>
+        // Initialize history page
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.app) {
+                window.app.loadAnalysisHistory();
+            }
+        });
+    </script>
+</body>
+</html>

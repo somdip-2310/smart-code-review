@@ -131,6 +131,17 @@ public class SmartCodeViewController {
         return "smartcode/results";
     }
     
+    @GetMapping("/compare/{analysisId1}/{analysisId2}")
+    public String compareAnalyses(@PathVariable String analysisId1, 
+                                @PathVariable String analysisId2, 
+                                Model model) {
+        model.addAttribute("title", "Compare Analyses - Smart Code Review");
+        model.addAttribute("analysisId1", analysisId1);
+        model.addAttribute("analysisId2", analysisId2);
+        model.addAttribute("googleAnalyticsId", googleAnalyticsId);
+        return "smartcode/compare";
+    }
+    
     /**
      * Generate structured data for home page SEO
      */

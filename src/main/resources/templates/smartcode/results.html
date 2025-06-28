@@ -67,12 +67,16 @@
         const maxPollAttempts = 150; // Max 5 minutes of polling
         
         // Progress stages for visualization
-        const progressStages = [
-            { icon: '🔍', label: 'Scanning', percent: 25, message: 'Analyzing code structure...' },
-            { icon: '🤖', label: 'Analyzing', percent: 50, message: 'AI is reviewing your code...' },
-            { icon: '📊', label: 'Generating', percent: 75, message: 'Creating detailed report...' },
-            { icon: '✅', label: 'Finalizing', percent: 90, message: 'Almost done...' }
-        ];
+		// Enhanced progress stages with more detailed steps
+		const progressStages = [
+		    { icon: '🔍', label: 'Scanning', percent: 10, message: 'Analyzing code structure...' },
+		    { icon: '🔒', label: 'Security Check', percent: 25, message: 'Checking for vulnerabilities...' },
+		    { icon: '⚡', label: 'Performance', percent: 40, message: 'Analyzing performance patterns...' },
+		    { icon: '🎨', label: 'Code Quality', percent: 55, message: 'Evaluating code quality metrics...' },
+		    { icon: '🤖', label: 'AI Analysis', percent: 70, message: 'Deep learning analysis in progress...' },
+		    { icon: '📊', label: 'Generating Report', percent: 85, message: 'Creating detailed insights...' },
+		    { icon: '✅', label: 'Finalizing', percent: 95, message: 'Almost done...' }
+		];
         
         // Fun facts to display during processing
         const funFacts = [
@@ -82,7 +86,65 @@
             'Our AI has reviewed millions of lines of code.',
             'We support over 20 programming languages.'
         ];
-        
+		// Staggered suggestion reveal system
+		        function revealSuggestionsGradually(suggestions) {
+		            const suggestionContainer = document.getElementById('suggestions-container');
+		            if (!suggestionContainer) return;
+		            
+		            // Hide all suggestions initially
+		            suggestions.forEach((suggestion, index) => {
+		                const element = document.createElement('div');
+		                element.id = `suggestion-${index}`;
+		                element.className = 'hidden suggestion-item';
+		                element.innerHTML = `
+		                    <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg transform transition-all duration-500">
+		                        <div class="flex items-start">
+		                            <span class="text-2xl mr-3">💡</span>
+		                            <div class="flex-1">
+		                                <h4 class="font-semibold text-blue-800 mb-1">${suggestion.title || `Tip #${index + 1}`}</h4>
+		                                <p class="text-gray-700">${suggestion.description}</p>
+		                                ${suggestion.codeExample ? `
+		                                    <pre class="mt-2 p-2 bg-white rounded text-sm overflow-x-auto"><code>${suggestion.codeExample}</code></pre>
+		                                ` : ''}
+		                            </div>
+		                        </div>
+		                    </div>
+		                `;
+		                suggestionContainer.appendChild(element);
+		            });
+		            
+		            // Reveal suggestions one by one
+		            suggestions.forEach((suggestion, index) => {
+		                setTimeout(() => {
+		                    const element = document.getElementById(`suggestion-${index}`);
+		                    if (element) {
+		                        element.classList.remove('hidden');
+		                        element.classList.add('animate-fadeIn', 'animate-slideInUp');
+		                        
+		                        // Play a subtle sound if available
+		                        if (window.Audio) {
+		                            const audio = new Audio('/sounds/suggestion.mp3');
+		                            audio.volume = 0.1;
+		                            audio.play().catch(() => {}); // Ignore errors
+		                        }
+		                    }
+		                }, 2000 * (index + 1)); // Reveal every 2 seconds
+		            });
+		        }
+		        
+		        // Add progress milestone notifications
+		        function showProgressMilestone(milestone) {
+		            const milestoneEl = document.createElement('div');
+		            milestoneEl.className = 'fixed bottom-20 right-4 bg-green-500 text-white p-4 rounded-lg shadow-lg animate-bounce z-50';
+		            milestoneEl.innerHTML = `
+		                <div class="flex items-center">
+		                    <span class="text-2xl mr-2">🎊</span>
+		                    <span class="font-semibold">${milestone}</span>
+		                </div>
+		            `;
+		            document.body.appendChild(milestoneEl);
+		            setTimeout(() => milestoneEl.remove(), 3000);
+		        }
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             // Show initial loading state

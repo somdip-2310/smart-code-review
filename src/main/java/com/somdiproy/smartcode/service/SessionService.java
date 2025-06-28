@@ -38,7 +38,7 @@ public class SessionService {
     
     private static final Logger logger = LoggerFactory.getLogger(SessionService.class);
     
-    @Value("${demo.session.duration.minutes:7}")
+    @Value("${demo.session.duration.minutes:20}")
     private int sessionDurationMinutes;
     
     @Value("${demo.session.cleanup.interval:300000}")

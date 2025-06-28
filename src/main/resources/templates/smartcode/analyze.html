@@ -460,6 +460,363 @@
             }
         }
         
+		// Add this async analyze function to your JavaScript
+		async function analyze() {
+		    try {
+		        // Check session first
+		        const sessionToken = localStorage.getItem('sessionToken') || sessionStorage.getItem('sessionToken');
+		        if (!sessionToken) {
+		            // Show session card instead of alert
+		            document.getElementById('session-card').classList.remove('hidden');
+		            document.getElementById('code-form-card').classList.add('hidden');
+		            if (window.smartCodeReviewApp) {
+		                window.smartCodeReviewApp.showToast('Session required. Please start a demo session.', 'warning');
+		            }
+		            return;
+		        }
+		        
+		        const codeInput = document.getElementById('code-input');
+		        const languageSelect = document.getElementById('language-select');
+		        
+		        if (!codeInput || !codeInput.value.trim()) {
+		            if (window.smartCodeReviewApp) {
+		                window.smartCodeReviewApp.showToast('Please paste some code to analyze', 'error');
+		            } else {
+		                alert('Please paste some code to analyze');
+		            }
+		            return;
+		        }
+		        
+		        const code = codeInput.value.trim();
+		        const language = languageSelect.value;
+		        
+		        // Check code size (100KB limit)
+		        const codeSize = new Blob([code]).size;
+		        if (codeSize > 102400) { // 100KB
+		            if (window.smartCodeReviewApp) {
+		                window.smartCodeReviewApp.showToast('Code exceeds 100KB limit. Please reduce the code size.', 'error');
+		            } else {
+		                alert('Code exceeds 100KB limit');
+		            }
+		            return;
+		        }
+		        
+		        // Show loading overlay
+		        const loadingOverlay = document.getElementById('loading-overlay');
+		        if (loadingOverlay) {
+		            loadingOverlay.classList.remove('hidden');
+		        }
+		        
+		        // Track analysis attempt
+		        if (typeof gtag !== 'undefined') {
+		            gtag('event', 'code_analysis_attempt', {
+		                'event_category': 'Smart_Code_Review',
+		                'language': language,
+		                'code_size': codeSize
+		            });
+		        }
+		        
+		        try {
+		            const response = await fetch('/api/analyze', {
+		                method: 'POST',
+		                headers: {
+		                    'Content-Type': 'application/json',
+		                    'X-Session-Token': sessionToken
+		                },
+		                body: JSON.stringify({
+		                    code: code,
+		                    language: language,
+		                    fileType: 'text',
+		                    fileName: `analysis.${language}`
+		                })
+		            });
+		            
+		            if (!response.ok) {
+		                throw new Error(`HTTP error! status: ${response.status}`);
+		            }
+		            
+		            const result = await response.json();
+		            
+		            if (result.success) {
+		                // Store analysis ID
+		                const analysisId = result.analysisId;
+		                
+		                // Start polling for results
+		                pollForResults(analysisId);
+		                
+		                // Track successful submission
+		                if (typeof gtag !== 'undefined') {
+		                    gtag('event', 'code_analysis_submitted', {
+		                        'event_category': 'Smart_Code_Review',
+		                        'analysis_id': analysisId
+		                    });
+		                }
+		            } else {
+		                throw new Error(result.message || 'Analysis failed');
+		            }
+		            
+		        } catch (error) {
+		            console.error('Analysis error:', error);
+		            
+		            // Hide loading overlay
+		            if (loadingOverlay) {
+		                loadingOverlay.classList.add('hidden');
+		            }
+		            
+		            // Show error message
+		            if (window.smartCodeReviewApp) {
+		                window.smartCodeReviewApp.showToast(
+		                    `Analysis failed: ${error.message}`, 
+		                    'error'
+		                );
+		            } else {
+		                alert(`Analysis failed: ${error.message}`);
+		            }
+		            
+		            // Track error
+		            if (typeof gtag !== 'undefined') {
+		                gtag('event', 'code_analysis_error', {
+		                    'event_category': 'Smart_Code_Review',
+		                    'error_message': error.message
+		                });
+		            }
+		        }
+		        
+		    } catch (error) {
+		        console.error('Unexpected error:', error);
+		        if (window.smartCodeReviewApp) {
+		            window.smartCodeReviewApp.showToast('An unexpected error occurred', 'error');
+		        }
+		    }
+		}
+
+		// Poll for analysis results
+		async function pollForResults(analysisId) {
+		    let attempts = 0;
+		    const maxAttempts = 60; // 5 minutes (5 seconds * 60)
+		    const pollInterval = 5000; // 5 seconds
+		    
+		    const poll = async () => {
+		        try {
+		            const response = await fetch(`/api/analysis/${analysisId}`);
+		            const data = await response.json();
+		            
+		            if (data.success && data.status === 'COMPLETED') {
+		                // Hide loading overlay
+		                const loadingOverlay = document.getElementById('loading-overlay');
+		                if (loadingOverlay) {
+		                    loadingOverlay.classList.add('hidden');
+		                }
+		                
+		                // Display results
+		                displayAnalysisResults(data);
+		                
+		                // Track completion
+		                if (typeof gtag !== 'undefined') {
+		                    gtag('event', 'code_analysis_completed', {
+		                        'event_category': 'Smart_Code_Review',
+		                        'analysis_id': analysisId
+		                    });
+		                }
+		                
+		            } else if (data.status === 'FAILED') {
+		                // Hide loading overlay
+		                const loadingOverlay = document.getElementById('loading-overlay');
+		                if (loadingOverlay) {
+		                    loadingOverlay.classList.add('hidden');
+		                }
+		                
+		                // Show error
+		                const errorMessage = data.message || 'Analysis failed';
+		                if (window.smartCodeReviewApp) {
+		                    window.smartCodeReviewApp.showToast(errorMessage, 'error');
+		                } else {
+		                    alert(errorMessage);
+		                }
+		                
+		            } else {
+		                // Still processing
+		                attempts++;
+		                if (attempts < maxAttempts) {
+		                    // Update loading text if needed
+		                    const loadingText = document.querySelector('.loading-text');
+		                    if (loadingText) {
+		                        loadingText.textContent = `Analyzing your code... (${Math.round(attempts * 5 / 60 * 100)}%)`;
+		                    }
+		                    
+		                    // Continue polling
+		                    setTimeout(poll, pollInterval);
+		                } else {
+		                    // Timeout
+		                    const loadingOverlay = document.getElementById('loading-overlay');
+		                    if (loadingOverlay) {
+		                        loadingOverlay.classList.add('hidden');
+		                    }
+		                    
+		                    if (window.smartCodeReviewApp) {
+		                        window.smartCodeReviewApp.showToast('Analysis timed out. Please try again.', 'error');
+		                    } else {
+		                        alert('Analysis timed out. Please try again.');
+		                    }
+		                }
+		            }
+		            
+		        } catch (error) {
+		            console.error('Polling error:', error);
+		            
+		            // Hide loading overlay
+		            const loadingOverlay = document.getElementById('loading-overlay');
+		            if (loadingOverlay) {
+		                loadingOverlay.classList.add('hidden');
+		            }
+		            
+		            if (window.smartCodeReviewApp) {
+		                window.smartCodeReviewApp.showToast('Failed to retrieve analysis results', 'error');
+		            }
+		        }
+		    };
+		    
+		    // Start polling
+		    setTimeout(poll, pollInterval);
+		}
+
+		// Display analysis results
+		function displayAnalysisResults(data) {
+		    const resultsSection = document.getElementById('results-section');
+		    if (!resultsSection) return;
+		    
+		    // Build results HTML (you can customize this based on your needs)
+		    const resultsHTML = `
+		        <div class="bg-white rounded-2xl shadow-xl p-8 animate-fadeIn">
+		            <h2 class="text-2xl font-bold text-gray-900 mb-6">Analysis Results</h2>
+		            
+		            <!-- Overall Score -->
+		            <div class="mb-8">
+		                <div class="flex items-center justify-between mb-2">
+		                    <span class="text-lg font-semibold text-gray-700">Overall Score</span>
+		                    <span class="text-3xl font-bold ${data.overallScore >= 8 ? 'text-green-600' : data.overallScore >= 6 ? 'text-yellow-600' : 'text-red-600'}">
+		                        ${data.overallScore}/10
+		                    </span>
+		                </div>
+		                <div class="w-full bg-gray-200 rounded-full h-3">
+		                    <div class="bg-gradient-to-r ${data.overallScore >= 8 ? 'from-green-400 to-green-600' : data.overallScore >= 6 ? 'from-yellow-400 to-yellow-600' : 'from-red-400 to-red-600'} h-3 rounded-full transition-all duration-1000"
+		                         style="width: ${data.overallScore * 10}%"></div>
+		                </div>
+		            </div>
+		            
+		            <!-- Summary -->
+		            <div class="mb-8">
+		                <h3 class="text-lg font-semibold text-gray-900 mb-3">Summary</h3>
+		                <p class="text-gray-700">${data.summary || 'Analysis completed successfully.'}</p>
+		            </div>
+		            
+		            <!-- Issues -->
+		            ${data.issues && data.issues.length > 0 ? `
+		                <div class="mb-8">
+		                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Issues Found (${data.issues.length})</h3>
+		                    <div class="space-y-3">
+		                        ${data.issues.map(issue => `
+		                            <div class="border-l-4 ${issue.severity === 'HIGH' ? 'border-red-500 bg-red-50' : issue.severity === 'MEDIUM' ? 'border-yellow-500 bg-yellow-50' : 'border-blue-500 bg-blue-50'} p-4 rounded-r-lg">
+		                                <div class="flex items-start justify-between">
+		                                    <div class="flex-1">
+		                                        <h4 class="font-semibold text-gray-900">${issue.category}</h4>
+		                                        <p class="text-gray-700 mt-1">${issue.description}</p>
+		                                        ${issue.suggestion ? `<p class="text-sm text-gray-600 mt-2"><strong>Suggestion:</strong> ${issue.suggestion}</p>` : ''}
+		                                    </div>
+		                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${issue.severity === 'HIGH' ? 'bg-red-100 text-red-800' : issue.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}">
+		                                        ${issue.severity}
+		                                    </span>
+		                                </div>
+		                            </div>
+		                        `).join('')}
+		                    </div>
+		                </div>
+		            ` : ''}
+		            
+		            <!-- Suggestions -->
+		            ${data.suggestions && data.suggestions.length > 0 ? `
+		                <div class="mb-8">
+		                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Suggestions</h3>
+		                    <ul class="space-y-2">
+		                        ${data.suggestions.map(suggestion => `
+		                            <li class="flex items-start">
+		                                <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+		                                </svg>
+		                                <span class="text-gray-700">${suggestion}</span>
+		                            </li>
+		                        `).join('')}
+		                    </ul>
+		                </div>
+		            ` : ''}
+		            
+		            <!-- Action Buttons -->
+		            <div class="flex space-x-4 mt-8">
+		                <button onclick="analyzeNewCode()" class="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300">
+		                    Analyze New Code
+		                </button>
+		                <button onclick="downloadReport('${data.analysisId}')" class="px-6 py-3 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-all duration-300">
+		                    Download Report
+		                </button>
+		            </div>
+		        </div>
+		    `;
+		    
+		    resultsSection.innerHTML = resultsHTML;
+		    resultsSection.classList.remove('hidden');
+		    
+		    // Scroll to results
+		    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+
+		// Helper function to analyze new code
+		function analyzeNewCode() {
+		    // Clear the code input
+		    const codeInput = document.getElementById('code-input');
+		    if (codeInput) {
+		        codeInput.value = '';
+		        updateCounts();
+		    }
+		    
+		    // Hide results
+		    const resultsSection = document.getElementById('results-section');
+		    if (resultsSection) {
+		        resultsSection.classList.add('hidden');
+		    }
+		    
+		    // Scroll back to top
+		    window.scrollTo({ top: 0, behavior: 'smooth' });
+		}
+
+		// Helper function to download report
+		async function downloadReport(analysisId) {
+		    try {
+		        const response = await fetch(`/api/analysis/${analysisId}/report`);
+		        if (response.ok) {
+		            const blob = await response.blob();
+		            const url = window.URL.createObjectURL(blob);
+		            const a = document.createElement('a');
+		            a.href = url;
+		            a.download = `code-analysis-${analysisId}.pdf`;
+		            document.body.appendChild(a);
+		            a.click();
+		            document.body.removeChild(a);
+		            window.URL.revokeObjectURL(url);
+		        } else {
+		            if (window.smartCodeReviewApp) {
+		                window.smartCodeReviewApp.showToast('Report download not available in demo version', 'info');
+		            }
+		        }
+		    } catch (error) {
+		        console.error('Download error:', error);
+		    }
+		}
+
+		// Update the existing analyzeCode function to call the async analyze function
+		function analyzeCode() {
+		    analyze();
+		}
+		
         // Analyze code
         function analyzeCode() {
             const codeInput = document.getElementById('code-input');

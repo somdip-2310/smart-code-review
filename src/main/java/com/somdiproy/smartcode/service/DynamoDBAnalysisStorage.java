@@ -208,9 +208,34 @@ public class DynamoDBAnalysisStorage {
             }
             
             if (record != null && record.getResultJson() != null) {
-                // Parse the JSON result
-                CodeReviewResult result = objectMapper.readValue(record.getResultJson(), CodeReviewResult.class);
-                record.setResult(result);
+                try {
+                    // Parse as Map first to handle field variations
+                    Map<String, Object> resultMap = objectMapper.readValue(record.getResultJson(), Map.class);
+                    
+                    // Handle "improvements" -> "suggestions" mapping
+                    if (resultMap.containsKey("improvements") && !resultMap.containsKey("suggestions")) {
+                        resultMap.put("suggestions", resultMap.get("improvements"));
+                        resultMap.remove("improvements");
+                    }
+                    
+                    // Convert back to JSON with corrected fields
+                    String normalizedJson = objectMapper.writeValueAsString(resultMap);
+                    
+                    // Now deserialize to CodeReviewResult
+                    CodeReviewResult result = objectMapper.readValue(normalizedJson, CodeReviewResult.class);
+                    record.setResult(result);
+                } catch (Exception e) {
+                    logger.error("Error parsing result JSON, trying direct parsing", e);
+                    // Fallback to direct parsing if normalization fails
+                    try {
+                        CodeReviewResult result = objectMapper.readValue(record.getResultJson(), CodeReviewResult.class);
+                        record.setResult(result);
+                    } catch (Exception e2) {
+                        logger.error("Failed to parse result JSON", e2);
+                        // Set result to null if parsing completely fails
+                        record.setResult(null);
+                    }
+                }
             }
             
             return record;

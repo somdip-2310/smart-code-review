@@ -28,8 +28,8 @@ public class BedrockRequestQueue {
     @PostConstruct
     public void init() {
         this.executorService = Executors.newFixedThreadPool(maxConcurrentRequests);
-        // Much more conservative rate limiting for large payloads
-        this.rateLimiter = RateLimiter.create(requestsPerMinute / 60.0 / 2); // Half the rate for safety
+        // Ultra-conservative rate limiting - 1 request every 35 seconds
+        this.rateLimiter = RateLimiter.create(Math.min(requestsPerMinute / 60.0 / 3, 1.0 / 35.0));
         this.concurrencyLimiter = new Semaphore(Math.max(1, maxConcurrentRequests / 2)); // Reduce concurrency
         logger.info("BedrockRequestQueue initialized with maxConcurrent={}, requestsPerMinute={}", 
                     maxConcurrentRequests / 2, requestsPerMinute);

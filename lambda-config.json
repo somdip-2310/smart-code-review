@@ -4,13 +4,16 @@
   "Handler": "com.somdiproy.smartcode.lambda.BedrockAnalysisLambda::handleRequest",
   "Timeout": 900,
   "MemorySize": 3008,
-  "ReservedConcurrentExecutions": 2,
+  "ReservedConcurrentExecutions": 1,
   "Environment": {
     "Variables": {
       "DYNAMODB_TABLE_NAME": "code-analysis-results",
       "S3_BUCKET_NAME": "smartcode-uploads",
       "BEDROCK_MODEL_ID": "us.amazon.nova-premier-v1:0",
-      "JAVA_TOOL_OPTIONS": "-XX:+TieredCompilation -XX:TieredStopAtLevel=1"
+      "JAVA_TOOL_OPTIONS": "-XX:+TieredCompilation -XX:TieredStopAtLevel=1",
+      "MAX_RETRIES": "5",
+      "BASE_RETRY_DELAY": "20000",
+      "CHUNK_PROCESSING_DELAY": "25000"
     }
   }
 }

@@ -35,7 +35,7 @@ public class RateLimitConfig implements WebMvcConfigurer {
     @Value("${rate.limit.api.per.minute:60}")
     private double apiCallsPerMinute;
     
-    @Value("${rate.limit.analysis.per.minute:20}")
+    @Value("${rate.limit.analysis.per.minute:4}")  // Maximum 4 analyses per minute across all users
     private double analysisRatePerMinute;
     
     @Value("${rate.limit.failed.attempts.max:5}")

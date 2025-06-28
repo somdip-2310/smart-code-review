@@ -132,9 +132,8 @@ public class SQSBedrockService {
             // Ensure delay doesn't exceed maximum
             int finalDelay = Math.min(calculatedDelay, maxDelaySeconds);
             
-            // Additional delay if we're approaching Bedrock rate limit
-            // Spread messages to stay under rate limit (e.g., 3 per minute = 1 every 20 seconds minimum)
-            int minIntervalSeconds = 60 / bedrockRateLimitPerMinute;
+            // More conservative interval - at least 35 seconds between messages
+            int minIntervalSeconds = Math.max(35, 60 / bedrockRateLimitPerMinute);
             if (invisibleMessages > 0 && finalDelay < minIntervalSeconds) {
                 finalDelay = minIntervalSeconds;
             }

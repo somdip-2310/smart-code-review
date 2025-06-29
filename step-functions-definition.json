@@ -39,27 +39,56 @@
     },
     "ProcessChunks": {
       "Type": "Map",
-      "MaxConcurrency": 3,
+      "MaxConcurrency": 5,
       "ItemsPath": "$.splitResult.chunks",
       "ResultPath": "$.chunkResults",
       "Parameters": {
         "chunkId.$": "$$.Map.Item.Value.chunkId",
         "code.$": "$$.Map.Item.Value.code",
         "analysisId.$": "$$.Map.Item.Value.analysisId",
-        "chunkIndex.$": "$$.Map.Item.Value.chunkIndex"
+        "chunkIndex.$": "$$.Map.Item.Value.chunkIndex",
+        "totalChunks.$": "$.splitResult.chunkCount",
+        "mapIndex.$": "$$.Map.Item.Index"
       },
       "Iterator": {
-        "StartAt": "AnalyzeChunk",
+        "StartAt": "CalculateStagger",
         "States": {
+          "CalculateStagger": {
+            "Type": "Pass",
+            "Parameters": {
+              "staggerSeconds.$": "States.MathMultiply($$.Map.Item.Index, 12)"
+            },
+            "ResultPath": "$.stagger",
+            "Next": "StaggeredWait"
+          },
+          "StaggeredWait": {
+            "Type": "Wait",
+            "SecondsPath": "$.stagger.staggerSeconds",
+            "Next": "AnalyzeChunk"
+          },
           "AnalyzeChunk": {
             "Type": "Task",
             "Resource": "arn:aws:lambda:us-east-1:257394460825:function:SmartCode-ChunkAnalyzer",
             "Retry": [{
-              "ErrorEquals": ["States.ALL"],
-              "IntervalSeconds": 2,
-              "MaxAttempts": 3,
-              "BackoffRate": 2.0
+              "ErrorEquals": ["ThrottlingException", "TooManyRequestsException", "States.TaskFailed"],
+              "IntervalSeconds": 20,
+              "MaxAttempts": 5,
+              "BackoffRate": 2.0,
+              "MaxDelaySeconds": 120
             }],
+            "Catch": [{
+              "ErrorEquals": ["States.ALL"],
+              "Next": "ChunkFailed",
+              "ResultPath": "$.error"
+            }]
+          },
+          "ChunkFailed": {
+            "Type": "Pass",
+            "Parameters": {
+              "chunkId.$": "$.chunkId",
+              "status": "FAILED",
+              "error.$": "$.error"
+            },
             "End": true
           }
         }

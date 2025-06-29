@@ -49,11 +49,15 @@ public class StepFunctionsBedrockService {
             input.put("language", language);
             input.put("timestamp", System.currentTimeMillis());
             
-            StartExecutionRequest request = StartExecutionRequest.builder()
-                .stateMachineArn(stateMachineArn)
-                .name("analysis-" + analysisId)
-                .input(objectMapper.writeValueAsString(input))
-                .build();
+           
+
+      
+         // Express workflow to be added later as an optimization
+         StartExecutionRequest request = StartExecutionRequest.builder()
+             .stateMachineArn(stateMachineArn)
+             .name("analysis-" + analysisId)
+             .input(objectMapper.writeValueAsString(input))
+             .build();
                 
             StartExecutionResponse response = sfnClient.startExecution(request);
             logger.info("Started Step Functions execution: {}", response.executionArn());

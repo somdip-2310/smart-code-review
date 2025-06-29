@@ -1,0 +1,26 @@
+{
+  "Comment": "Express workflow for small files",
+  "StartAt": "DirectAnalysis",
+  "States": {
+    "DirectAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:257394460825:function:SmartCode-ChunkAnalyzer",
+      "TimeoutSeconds": 60,
+      "Next": "SaveResult"
+    },
+    "SaveResult": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "TableName": "code-analysis-results",
+        "Item": {
+          "analysisId": {"S.$": "$.analysisId"},
+          "result": {"S.$": "States.JsonToString($.analysis)"},
+          "status": {"S": "COMPLETED"},
+          "timestamp": {"N.$": "States.Format('{}', $$.State.EnteredTime)"}
+        }
+      },
+      "End": true
+    }
+  }
+}

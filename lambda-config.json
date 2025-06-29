@@ -12,8 +12,8 @@
       "BEDROCK_MODEL_ID": "us.amazon.nova-premier-v1:0",
       "JAVA_TOOL_OPTIONS": "-XX:+TieredCompilation -XX:TieredStopAtLevel=1",
       "MAX_RETRIES": "7",
-      "BASE_RETRY_DELAY": "60000",
-      "CHUNK_PROCESSING_DELAY": "90000",
+      "BASE_RETRY_DELAY": "5000",
+      "CHUNK_PROCESSING_DELAY": "0",
       "EXPONENTIAL_BACKOFF_MULTIPLIER": "1.5",
 	  "EMERGENCY_PAUSE_THRESHOLD": "10",
 	  "EMERGENCY_PAUSE_DURATION_MS": "600000"

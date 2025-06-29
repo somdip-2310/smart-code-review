@@ -688,7 +688,6 @@ class SmartCodeReviewApp {
 				            <div>
 							<h4 class="font-semibold text-gray-700">📁 File Analyzed</h4>
 							                <p class="text-lg text-gray-900">${result.metadata?.fileName || result.metadata?.filename || 'Unknown File'}</p>
-				                <p class="text-lg text-gray-900">${result.metadata.fileName}</p>
 				            </div>
 				            <div class="text-sm text-gray-500">
 				                ${result.metadata.uploadTimestamp ? new Date(result.metadata.uploadTimestamp).toLocaleString() : ''}
@@ -698,9 +697,11 @@ class SmartCodeReviewApp {
 				` : ''}
 	            <div class="analysis-card bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
 	                <div class="analysis-header">
-					<div class="score-circle ${scoreClass} shadow-lg">
-					                        ${result.overallScore ? result.overallScore.toFixed(1) : ''}
-					                    </div>
+					${result.overallScore ? `
+					    <div class="score-circle ${scoreClass} shadow-lg">
+					        ${result.overallScore.toFixed(1)}
+					    </div>
+					` : ''}
 	                    <div>
 	                        <h3 class="text-2xl font-bold text-gray-900">Overall Code Quality</h3>
 	                        <p class="text-gray-600 mt-1">${result.summary || 'Analysis completed successfully'}</p>
@@ -836,7 +837,7 @@ class SmartCodeReviewApp {
 	    const category = issue.category || 'General';
 	    const title = issue.title || 'Code Issue';
 	    const description = issue.description || '';
-	    const fileName = issue.fileName || 'Unknown';
+	    const fileName = issue.fileName || issue.file || (this.currentAnalysis?.result?.metadata?.fileName ? this.currentAnalysis.result.metadata.fileName : 'Analysis File');
 	    const lineNumber = issue.lineNumber || '-';
 	    
 	    return `
@@ -860,8 +861,6 @@ class SmartCodeReviewApp {
 	            <td class="px-4 py-3 text-sm font-medium text-gray-900">${cveScore}</td>
 	            <td class="px-4 py-3 text-sm">
 				<button onclick="window.app.viewIssueDetails(${index})" class="text-indigo-600 hover:text-indigo-900 font-medium">
-								    View Details
-								</button>
 				    View Details
 				</button>
 	            </td>

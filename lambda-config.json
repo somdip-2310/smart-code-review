@@ -11,9 +11,10 @@
       "S3_BUCKET_NAME": "smartcode-uploads",
       "BEDROCK_MODEL_ID": "us.amazon.nova-premier-v1:0",
       "JAVA_TOOL_OPTIONS": "-XX:+TieredCompilation -XX:TieredStopAtLevel=1",
-      "MAX_RETRIES": "5",
-      "BASE_RETRY_DELAY": "20000",
-      "CHUNK_PROCESSING_DELAY": "25000"
+      "MAX_RETRIES": "7",
+      "BASE_RETRY_DELAY": "60000",
+      "CHUNK_PROCESSING_DELAY": "90000",
+      "EXPONENTIAL_BACKOFF_MULTIPLIER": "1.5"
     }
   }
 }

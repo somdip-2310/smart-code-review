@@ -2125,10 +2125,28 @@ class SmartCodeReviewApp {
 						        <p class="text-sm text-yellow-900">${issue.estimatedEffort}</p>
 						    </div>
 						` : ''}
-	                </div>
-	                
-	                <div class="mt-5 sm:mt-6">
-	                    <button onclick="this.closest('.fixed').remove()" 
+
+						${issue.cveScore ? `
+						    <div class="bg-red-50 p-3 rounded">
+						        <p class="text-sm font-medium text-red-700 mb-1">🚨 CVE Score</p>
+						        <div class="cve-score-container ${
+						            issue.cveScore >= 9 ? 'cve-score-critical' :
+						            issue.cveScore >= 7 ? 'cve-score-high' :
+						            issue.cveScore >= 4 ? 'cve-score-medium' : 'cve-score-low'
+						        }">
+						            <span class="text-lg font-bold">${issue.cveScore.toFixed(1)}</span>
+						            <span class="text-sm">${
+						                issue.cveScore >= 9 ? 'Critical' :
+						                issue.cveScore >= 7 ? 'High' :
+						                issue.cveScore >= 4 ? 'Medium' : 'Low'
+						            }</span>
+						        </div>
+						    </div>
+						` : ''}
+						</div>
+
+						<div class="mt-5 sm:mt-6">
+						    <button onclick="this.closest('.fixed').remove()" 
 	                            class="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm transition-colors">
 	                        Close
 	                    </button>

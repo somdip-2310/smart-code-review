@@ -49,17 +49,11 @@ public class BedrockService {
             // Store initial status in DynamoDB
             dynamoDBStorage.saveAnalysisStatus(analysisId, "QUEUED", "Analysis queued for processing");
             
-         // Submit for async processing
-            String executionId;
-            if (stepFunctionsService.isEnabled()) {
-                // Use Step Functions
-                executionId = stepFunctionsService.submitAnalysisToStepFunctions(analysisId, code, language);
-                logger.info("Analysis {} submitted to Step Functions: {}", analysisId, executionId);
-            } else {
-                // Fallback to SQS
-                executionId = sqsService.submitAnalysisRequest(analysisId, code, language);
-                logger.info("Analysis {} submitted to SQS: {}", analysisId, executionId);
-            }
+			// Submit for async processing
+			String executionId;
+			// Use Step Functions
+			executionId = stepFunctionsService.submitAnalysisToStepFunctions(analysisId, code, language);
+			logger.info("Analysis {} submitted to Step Functions: {}", analysisId, executionId);
             
             // Return pending result with analysis ID
             return CodeReviewResult.builder()

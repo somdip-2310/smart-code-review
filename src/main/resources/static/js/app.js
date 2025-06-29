@@ -367,7 +367,7 @@ class SmartCodeReviewApp {
 	                ...this.sessionData,
 	                ...data,
 	                sessionToken: data.token || data.sessionToken,
-	                expiresAt: data.expiresAt || Date.now() + (7 * 60 * 1000) // 7 minutes from now
+	                expiresAt: data.expiresAt || Date.now() + (120 * 60 * 1000) // 7 minutes from now
 	            };
 	            
 	            // Save session using the existing method
@@ -1234,29 +1234,26 @@ class SmartCodeReviewApp {
 	            return;
 	        }
 	        
-	        const totalMinutes = 20;
+	        const totalMinutes = 120;
 	        const remainingMinutes = Math.floor(remainingMs / 60000);
 	        const remainingSeconds = Math.floor((remainingMs % 60000) / 1000);
 	        const elapsedMinutes = totalMinutes - remainingMinutes;
 	        
 	        // Milestone notifications
-	        if (elapsedMinutes === 5 && !this.milestones.has(5)) {
-	            this.showToast('🎉 5 minutes in! Keep analyzing for better insights!', 'success');
-	            this.milestones.add(5);
-	            this.unlockFeature('advanced-metrics');
-	        }
-	        
-	        if (elapsedMinutes === 10 && !this.milestones.has(10)) {
-	            this.showToast('⭐ Halfway there! Advanced features unlocked!', 'success');
-	            this.milestones.add(10);
-	            this.unlockFeature('comparison-mode');
-	        }
-	        
-	        if (elapsedMinutes === 15 && !this.milestones.has(15)) {
-	            this.showToast('🚀 Pro level! You\'re getting the most out of Smart Code Review!', 'success');
-	            this.milestones.add(15);
-	            this.unlockFeature('export-features');
-	        }
+			if (elapsedMinutes === 30 && !this.milestones.has(30)) {
+			    this.showToast('🎉 30 minutes in! Keep analyzing!', 'success');
+			    this.milestones.add(30);
+			}
+
+			if (elapsedMinutes === 60 && !this.milestones.has(60)) {
+			    this.showToast('⭐ Halfway there! 1 hour of productive analysis!', 'success');
+			    this.milestones.add(60);
+			}
+
+			if (elapsedMinutes === 90 && !this.milestones.has(90)) {
+			    this.showToast('🚀 Pro level! 90 minutes of deep code analysis!', 'success');
+			    this.milestones.add(90);
+			}
 	        
 	        // Update display with enhanced formatting
 	        const timerDisplay = document.getElementById('timer-display');

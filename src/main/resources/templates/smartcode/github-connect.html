@@ -97,7 +97,7 @@
                                 <!-- Session info -->
                                 <div th:if="${sessionToken}" class="mt-3 text-xs text-gray-500">
                                     <p>Session ID: <span th:text="${sessionToken}" class="font-mono">xxx</span></p>
-                                    <p>Valid for: <span id="session-timer" class="font-semibold">7:00</span> minutes</p>
+                                    <p>Valid for: <span id="session-timer" class="font-semibold">120:00</span> minutes</p>
                                 </div>
                             </div>
                         </div>
@@ -227,7 +227,7 @@
         
         function startSessionTimer() {
             // Assume session started recently, so we have full 7 minutes
-            let timeRemaining = 1200; // 7 minutes in seconds
+            let timeRemaining = 7200; // 120 minutes in seconds
             
             function updateTimer() {
                 const minutes = Math.floor(timeRemaining / 60);

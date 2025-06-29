@@ -2071,12 +2071,60 @@ class SmartCodeReviewApp {
 	                        </div>
 	                    ` : ''}
 	                    
-	                    ${issue.suggestion ? `
-	                        <div class="bg-blue-50 p-3 rounded">
-	                            <p class="text-sm font-medium text-blue-700 mb-1">💡 Suggestion</p>
-	                            <p class="text-sm text-blue-900">${issue.suggestion}</p>
-	                        </div>
-	                    ` : ''}
+						${issue.suggestion ? `
+						    <div class="bg-blue-50 p-3 rounded">
+						        <p class="text-sm font-medium text-blue-700 mb-1">💡 Suggestion</p>
+						        <p class="text-sm text-blue-900">${issue.suggestion}</p>
+						    </div>
+						` : ''}
+
+						${issue.fixInstructions ? `
+						    <div class="bg-green-50 p-3 rounded">
+						        <p class="text-sm font-medium text-green-700 mb-2">🔧 How to Fix</p>
+						        <div class="text-sm text-green-900 space-y-1">
+						            ${issue.fixInstructions.split('\\n').map(step => `<div>• ${step}</div>`).join('')}
+						        </div>
+						    </div>
+						` : ''}
+
+						${issue.searchPattern && issue.replacePattern ? `
+						    <div class="bg-purple-50 p-3 rounded">
+						        <p class="text-sm font-medium text-purple-700 mb-2">📝 Code Changes Required</p>
+						        <div class="space-y-3">
+						            <div>
+						                <p class="text-xs font-medium text-purple-600 mb-1">Search for:</p>
+						                <pre class="bg-red-50 border border-red-200 text-red-900 p-2 rounded text-xs overflow-x-auto"><code>${this.escapeHtml(issue.searchPattern)}</code></pre>
+						            </div>
+						            <div>
+						                <p class="text-xs font-medium text-purple-600 mb-1">Replace with:</p>
+						                <pre class="bg-green-50 border border-green-200 text-green-900 p-2 rounded text-xs overflow-x-auto"><code>${this.escapeHtml(issue.replacePattern)}</code></pre>
+						            </div>
+						        </div>
+						    </div>
+						` : ''}
+
+						${issue.correctedCode ? `
+						    <div class="bg-emerald-50 p-3 rounded">
+						        <p class="text-sm font-medium text-emerald-700 mb-2">✅ Corrected Code Example</p>
+						        <pre class="bg-emerald-900 text-emerald-100 p-3 rounded overflow-x-auto text-xs"><code>${this.escapeHtml(issue.correctedCode)}</code></pre>
+						    </div>
+						` : ''}
+
+						${issue.implementationGuide ? `
+						    <div class="bg-indigo-50 p-3 rounded">
+						        <p class="text-sm font-medium text-indigo-700 mb-2">📚 Implementation Guide</p>
+						        <div class="text-sm text-indigo-900 prose prose-sm max-w-none">
+						            ${issue.implementationGuide}
+						        </div>
+						    </div>
+						` : ''}
+
+						${issue.estimatedEffort ? `
+						    <div class="bg-yellow-50 p-3 rounded">
+						        <p class="text-sm font-medium text-yellow-700 mb-1">⏱️ Estimated Effort</p>
+						        <p class="text-sm text-yellow-900">${issue.estimatedEffort}</p>
+						    </div>
+						` : ''}
 	                </div>
 	                
 	                <div class="mt-5 sm:mt-6">

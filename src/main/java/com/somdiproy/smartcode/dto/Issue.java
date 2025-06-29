@@ -27,6 +27,15 @@ public class Issue {
     private String suggestion;
     private String category;     // Security, Performance, Quality, Best Practice
     
+    // NEW FIELDS FOR DETAILED FIX INSTRUCTIONS
+    private String fixInstructions;    // Step-by-step instructions
+    private String searchPattern;       // What to search for
+    private String replacePattern;      // What to replace with
+    private String correctedCode;       // Example of fixed code
+    private String implementationGuide; // Detailed implementation guide
+    private String estimatedEffort;     // Time/complexity estimate
+    private Double cveScore;            // CVE score if applicable
+    
     // Default constructor
     public Issue() {
     }
@@ -132,6 +141,63 @@ public class Issue {
         this.category = category;
     }
     
+    // NEW GETTERS AND SETTERS
+    public String getFixInstructions() {
+        return fixInstructions;
+    }
+    
+    public void setFixInstructions(String fixInstructions) {
+        this.fixInstructions = fixInstructions;
+    }
+    
+    public String getSearchPattern() {
+        return searchPattern;
+    }
+    
+    public void setSearchPattern(String searchPattern) {
+        this.searchPattern = searchPattern;
+    }
+    
+    public String getReplacePattern() {
+        return replacePattern;
+    }
+    
+    public void setReplacePattern(String replacePattern) {
+        this.replacePattern = replacePattern;
+    }
+    
+    public String getCorrectedCode() {
+        return correctedCode;
+    }
+    
+    public void setCorrectedCode(String correctedCode) {
+        this.correctedCode = correctedCode;
+    }
+    
+    public String getImplementationGuide() {
+        return implementationGuide;
+    }
+    
+    public void setImplementationGuide(String implementationGuide) {
+        this.implementationGuide = implementationGuide;
+    }
+    
+    public String getEstimatedEffort() {
+        return estimatedEffort;
+    }
+    
+    public void setEstimatedEffort(String estimatedEffort) {
+        this.estimatedEffort = estimatedEffort;
+    }
+    
+    public Double getCveScore() {
+        return cveScore;
+    }
+    
+    public void setCveScore(Double cveScore) {
+        this.cveScore = cveScore;
+    }
+    
     // Builder class
     public static class IssueBuilder {
         private String id;
@@ -144,6 +210,13 @@ public class Issue {
         private String codeSnippet;
         private String suggestion;
         private String category;
+        private String fixInstructions;
+        private String searchPattern;
+        private String replacePattern;
+        private String correctedCode;
+        private String implementationGuide;
+        private String estimatedEffort;
+        private Double cveScore;
         
         public IssueBuilder id(String id) {
             this.id = id;
@@ -195,9 +268,52 @@ public class Issue {
             return this;
         }
         
+        public IssueBuilder fixInstructions(String fixInstructions) {
+            this.fixInstructions = fixInstructions;
+            return this;
+        }
+        
+        public IssueBuilder searchPattern(String searchPattern) {
+            this.searchPattern = searchPattern;
+            return this;
+        }
+        
+        public IssueBuilder replacePattern(String replacePattern) {
+            this.replacePattern = replacePattern;
+            return this;
+        }
+        
+        public IssueBuilder correctedCode(String correctedCode) {
+            this.correctedCode = correctedCode;
+            return this;
+        }
+        
+        public IssueBuilder implementationGuide(String implementationGuide) {
+            this.implementationGuide = implementationGuide;
+            return this;
+        }
+        
+        public IssueBuilder estimatedEffort(String estimatedEffort) {
+            this.estimatedEffort = estimatedEffort;
+            return this;
+        }
+        
+        public IssueBuilder cveScore(Double cveScore) {
+            this.cveScore = cveScore;
+            return this;
+        }
+        
         public Issue build() {
-            return new Issue(id, type, severity, title, description, fileName, 
+            Issue issue = new Issue(id, type, severity, title, description, fileName, 
                            lineNumber, codeSnippet, suggestion, category);
+            issue.setFixInstructions(fixInstructions);
+            issue.setSearchPattern(searchPattern);
+            issue.setReplacePattern(replacePattern);
+            issue.setCorrectedCode(correctedCode);
+            issue.setImplementationGuide(implementationGuide);
+            issue.setEstimatedEffort(estimatedEffort);
+            issue.setCveScore(cveScore);
+            return issue;
         }
     }
 }

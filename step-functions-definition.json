@@ -1,0 +1,83 @@
+{
+  "Comment": "Smart Code Review Analysis Pipeline",
+  "StartAt": "ValidateAndSplit",
+  "States": {
+    "ValidateAndSplit": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:257394460825:function:SmartCode-CodeSplitter",
+      "ResultPath": "$.splitResult",
+      "Next": "CheckChunkCount"
+    },
+    "CheckChunkCount": {
+      "Type": "Choice",
+      "Choices": [{
+        "Variable": "$.splitResult.chunkCount",
+        "NumericGreaterThan": 0,
+        "Next": "ProcessChunks"
+      }],
+      "Default": "SingleAnalysis"
+    },
+    "SingleAnalysis": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:257394460825:function:SmartCode-ChunkAnalyzer",
+      "Parameters": {
+        "chunkId.$": "$.analysisId",
+        "code.$": "$.splitResult.originalCode",
+        "analysisId.$": "$.analysisId",
+        "chunkIndex": 0
+      },
+      "ResultPath": "$.analysisResult",
+      "Next": "PrepareSingleResult"
+    },
+    "PrepareSingleResult": {
+      "Type": "Pass",
+      "Parameters": {
+        "analysisId.$": "$.analysisId",
+        "chunkResults.$": "States.Array($.analysisResult)"
+      },
+      "Next": "MergeResults"
+    },
+    "ProcessChunks": {
+      "Type": "Map",
+      "MaxConcurrency": 3,
+      "ItemsPath": "$.splitResult.chunks",
+      "ResultPath": "$.chunkResults",
+      "Parameters": {
+        "chunkId.$": "$$.Map.Item.Value.chunkId",
+        "code.$": "$$.Map.Item.Value.code",
+        "analysisId.$": "$$.Map.Item.Value.analysisId",
+        "chunkIndex.$": "$$.Map.Item.Value.chunkIndex"
+      },
+      "Iterator": {
+        "StartAt": "AnalyzeChunk",
+        "States": {
+          "AnalyzeChunk": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-east-1:257394460825:function:SmartCode-ChunkAnalyzer",
+            "Retry": [{
+              "ErrorEquals": ["States.ALL"],
+              "IntervalSeconds": 2,
+              "MaxAttempts": 3,
+              "BackoffRate": 2.0
+            }],
+            "End": true
+          }
+        }
+      },
+      "Next": "PrepareChunkResults"
+    },
+    "PrepareChunkResults": {
+      "Type": "Pass",
+      "Parameters": {
+        "analysisId.$": "$.analysisId",
+        "chunkResults.$": "$.chunkResults"
+      },
+      "Next": "MergeResults"
+    },
+    "MergeResults": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:257394460825:function:SmartCode-ResultMerger",
+      "End": true
+    }
+  }
+}

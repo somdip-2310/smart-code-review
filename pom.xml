@@ -105,9 +105,16 @@
 			<artifactId>s3</artifactId>
 		</dependency>
 
+		<!-- AWS SDK v2 for Bedrock -->
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>bedrockruntime</artifactId>
+		</dependency>
+
+		<!-- AWS SDK v2 for Step Functions -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>sfn</artifactId>
 		</dependency>
 
 		<!-- AWS SDK v1 Dependencies -->

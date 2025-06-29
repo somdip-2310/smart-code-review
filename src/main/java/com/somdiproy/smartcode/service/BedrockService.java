@@ -3,6 +3,7 @@ package com.somdiproy.smartcode.service;
 import com.somdiproy.smartcode.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -10,18 +11,21 @@ import java.util.*;
 
 @Service
 public class BedrockService {
-    private static final Logger logger = LoggerFactory.getLogger(BedrockService.class);
-    
-    @Value("${bedrock.processing.mode:async}")
-    private String processingMode;
-    
-    private final SQSBedrockService sqsService;
-    private final DynamoDBAnalysisStorage dynamoDBStorage;
-    
-    public BedrockService(SQSBedrockService sqsService, DynamoDBAnalysisStorage dynamoDBStorage) {
-        this.sqsService = sqsService;
-        this.dynamoDBStorage = dynamoDBStorage;
-    }
+	private static final Logger logger = LoggerFactory.getLogger(BedrockService.class);
+
+	@Value("${bedrock.processing.mode:async}")
+	private String processingMode;
+
+	private final SQSBedrockService sqsService;
+	private final StepFunctionsBedrockService stepFunctionsService;
+	private final DynamoDBAnalysisStorage dynamoDBStorage;
+
+	public BedrockService(SQSBedrockService sqsService, DynamoDBAnalysisStorage dynamoDBStorage,
+			StepFunctionsBedrockService stepFunctionsService) {
+		this.sqsService = sqsService;
+		this.dynamoDBStorage = dynamoDBStorage;
+		this.stepFunctionsService = stepFunctionsService;
+	}
     
     /**
      * Submit code for analysis
@@ -45,10 +49,17 @@ public class BedrockService {
             // Store initial status in DynamoDB
             dynamoDBStorage.saveAnalysisStatus(analysisId, "QUEUED", "Analysis queued for processing");
             
-            // Submit to SQS for async processing
-            String messageId = sqsService.submitAnalysisRequest(analysisId, code, language);
-            
-            logger.info("Analysis {} submitted to queue with message ID: {}", analysisId, messageId);
+         // Submit for async processing
+            String executionId;
+            if (stepFunctionsService.isEnabled()) {
+                // Use Step Functions
+                executionId = stepFunctionsService.submitAnalysisToStepFunctions(analysisId, code, language);
+                logger.info("Analysis {} submitted to Step Functions: {}", analysisId, executionId);
+            } else {
+                // Fallback to SQS
+                executionId = sqsService.submitAnalysisRequest(analysisId, code, language);
+                logger.info("Analysis {} submitted to SQS: {}", analysisId, executionId);
+            }
             
             // Return pending result with analysis ID
             return CodeReviewResult.builder()

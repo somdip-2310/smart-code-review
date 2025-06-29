@@ -71,7 +71,7 @@ public class BedrockService {
                         "analysisId", analysisId,
                         "status", "QUEUED",
                         "message", "Use the analysis ID to check status",
-                        "queueMessageId", messageId
+                        "executionId", executionId
                     ))
                     .build();
                     

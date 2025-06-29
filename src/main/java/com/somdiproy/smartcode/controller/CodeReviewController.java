@@ -304,46 +304,6 @@ public class CodeReviewController {
     }
     
     /**
-     * Generate PDF report for analysis
-     */
-    @GetMapping("/analysis/{analysisId}/report")
-    public ResponseEntity<byte[]> downloadReport(@PathVariable String analysisId,
-                                                @RequestParam String sessionToken) {
-        try {
-            logger.info("Generating PDF report for analysis: {}", analysisId);
-            
-            // Validate session
-            if (!sessionService.isValidSession(sessionToken)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-            }
-            
-            // Get analysis result
-            AnalysisResponse response = codeAnalysisService.getAnalysisResult(analysisId);
-            
-            if (response == null || response.getResult() == null) {
-                return ResponseEntity.notFound().build();
-            }
-            
-            // Generate PDF (implement in ReportGenerationService)
-            byte[] pdfBytes = reportGenerationService.generatePDFReport(response);
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.builder("attachment")
-                    .filename("code-analysis-" + analysisId + ".pdf")
-                    .build());
-            
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .body(pdfBytes);
-                    
-        } catch (Exception e) {
-            logger.error("Error generating PDF report", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-    
-    /**
      * GitHub webhook endpoint
      */
     @PostMapping("/webhook/github")

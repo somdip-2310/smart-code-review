@@ -21,6 +21,7 @@ public class QualityMetrics {
     private double documentationCoverage;   // Percentage
     private int codeSmellsCount;
     private int technicalDebtMinutes;       // Estimated time to fix all issues
+    private String technicalDebt;           // Technical debt level (Low/Medium/High)       // Estimated time to fix all issues
     private Map<String, Integer> metricBreakdown;
     
     // Default constructor
@@ -127,7 +128,15 @@ public class QualityMetrics {
         this.metricBreakdown = metricBreakdown;
     }
     
-    // Builder class
+    public String getTechnicalDebt() {
+		return technicalDebt;
+	}
+
+	public void setTechnicalDebt(String technicalDebt) {
+		this.technicalDebt = technicalDebt;
+	}
+
+	// Builder class
     public static class QualityMetricsBuilder {
         private double maintainabilityScore;
         private double readabilityScore;

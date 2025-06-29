@@ -279,7 +279,8 @@ public class CodeAnalysisService {
             
             // Submit to Bedrock processing queue with metadata
             if (sqsService != null) {
-                sqsService.submitAnalysisRequest(analysisId, extractedCode, request.getLanguage(), metadata);
+            	String language = (request != null && request.getLanguage() != null) ? request.getLanguage() : "auto";
+                sqsService.submitAnalysisRequest(analysisId, extractedCode, language, metadata);
             } else {
                 // Fallback to direct Bedrock submission
                 bedrockService.submitAnalysisWithId(analysisId, extractedCode, request.getLanguage());
